@@ -22,6 +22,7 @@
       estasEn: 'Estás en', fueraCampo: 'Fuera de los potreros', buscandoGps: 'Buscando GPS…',
       nuevaAqui: 'Visita aquí', ha: 'ha', usoAhora: 'Uso ahora', planMes: 'Plan del mes',
       rotacion: 'Rotación', planMensual: 'Plan mensual (planilla)', historial: 'Visitas',
+      campana: 'Campaña', ahora: 'ahora', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
       sinVisitas: 'Todavía no hay visitas.', nuevaVisita: 'Nueva visita', verMapa: 'Ver en el mapa',
       todos: 'Todos', semente: 'Semilla', pastagem: 'Pastura', soja: 'Soja', arroz: 'Arroz',
       nativo: 'Campo nativo', resteva: 'Rastrojo', outro: 'Otro', colheita: 'en cosecha',
@@ -65,6 +66,7 @@
       estasEn: 'Você está em', fueraCampo: 'Fora dos potreiros', buscandoGps: 'Buscando GPS…',
       nuevaAqui: 'Visita aqui', ha: 'ha', usoAhora: 'Uso agora', planMes: 'Plano do mês',
       rotacion: 'Rotação', planMensual: 'Plano mensal (planilha)', historial: 'Visitas',
+      campana: 'Safra', ahora: 'agora', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
       sinVisitas: 'Ainda não há visitas.', nuevaVisita: 'Nova visita', verMapa: 'Ver no mapa',
       todos: 'Todos', semente: 'Semente', pastagem: 'Pastagem', soja: 'Soja', arroz: 'Arroz',
       nativo: 'Campo nativo', resteva: 'Resteva', outro: 'Outro', colheita: 'em colheita',
@@ -546,7 +548,19 @@
     return h;
   }
 
+  var fichaCap = 'rotacion';
+  // Campañas: el verano (p. ej. 2025-26) y el invierno que le sigue (inv 26).
+  function campanas() {
+    var l = [];
+    datos.periodos.forEach(function (per) {
+      if (/^inv/.test(per) && l.length && !l[l.length - 1].inv) l[l.length - 1].inv = per;
+      else if (/^inv/.test(per)) l.push({ ver: null, inv: per });
+      else l.push({ ver: per, inv: null });
+    });
+    return l;
+  }
   function vistaFicha(id) {
+    if (id !== fichaActual) fichaCap = 'rotacion';
     fichaActual = id;
     var p = potrero(id); if (!p) return ir('potreiros');
     var hoy = new Date(), u = usoAhora(p, hoy), mesHoy = hoy.getMonth() + 1;
@@ -554,18 +568,49 @@
       '<div class="mut">' + p.ha + ' ' + T('ha') + '</div><div><b>' + esc(T('usoAhora')) + ':</b> ' + esc(u.uso || '—') +
       (u.colheita ? ' (' + esc(T('colheita')) + ')' : '') + '</div><div><b>' + esc(T('planMes')) + ':</b> ' + esc(u.mes || '—') +
       '</div></div>' + chip(u.cat) + '</div></div>';
-    h += '<button class="btn" type="button" data-nueva="' + p.id + '">＋ ' + esc(T('nuevaVisita')) + '</button>';
-    h += '<h3>' + esc(T('rotacion')) + '</h3><div class="rot">' + datos.periodos.map(function (per) {
-      return '<div class="' + (per === u.per ? 'actual' : '') + '"><b>' + esc(per) + '</b>' + esc(p.rotacao[per] || '—') + '</div>';
+    var caps = [['rotacion', T('rotacion')], ['gastos', SJ.T('gastos')], ['costos', SJ.T('costos')], ['visitas', T('historial')]];
+    h += '<div class="filtros conm caps">' + caps.map(function (c) {
+      return '<button type="button" data-cap="' + c[0] + '" class="' + (fichaCap === c[0] ? 'activo' : '') + '">' + esc(c[1]) + '</button>';
     }).join('') + '</div>';
+    if (fichaCap === 'rotacion') h += capRotacion(p, u, mesHoy);
+    else if (fichaCap === 'gastos') h += SJ.fichaGastos ? SJ.fichaGastos(p) : '';
+    else if (fichaCap === 'costos') h += SJ.fichaCostos ? SJ.fichaCostos(p) : '';
+    else h += '<button class="btn" type="button" data-nueva="' + p.id + '">＋ ' + esc(T('nuevaVisita')) + '</button>' +
+      listaVisitas(function (v) { return v.potreiro_id === p.id; });
+    $('#tela-ficha').innerHTML = h;
+  }
+  function capRotacion(p, u, mesHoy) {
+    var costos = SJ.costoPorPeriodo ? SJ.costoPorPeriodo(p) : {}, vis = {};
+    todasLasVisitas().forEach(function (x) {
+      if (x.v.potreiro_id !== p.id || !x.v.fecha) return;
+      var d = new Date(String(x.v.fecha).slice(0, 10) + 'T12:00'); if (isNaN(d)) return;
+      var per = periodoDe(d); vis[per] = (vis[per] || 0) + 1;
+    });
+    function fila(per, icono) {
+      if (!per) return '';
+      var uso = p.rotacao[per] || '', tipo = clasificar(uso), c = costos[per];
+      var extra = [c ? c.n + ' ' + T(c.n === 1 ? 'gastoN' : 'gastosN') : '', vis[per] ? vis[per] + ' ' + T(vis[per] === 1 ? 'visitaN' : 'visitasN') : '']
+        .filter(Boolean).join(' · ');
+      return '<div class="camp-per' + (per === u.per ? ' actual' : '') + '"><i style="background:' + colorTipo(tipo) + '"></i><div class="crece">' +
+        '<div class="mut">' + icono + ' ' + esc(etiquetaPer(per)) + (per === u.per ? ' · <b class="ahora">' + esc(T('ahora')) + '</b>' : '') + '</div>' +
+        '<b>' + esc(uso || '—') + '</b>' + (uso ? ' <span class="chip" style="background:' + colorTipo(tipo) + '">' + esc(nombreTipo(tipo)) + '</span>' : '') +
+        (extra ? '<div class="mut chico">' + esc(extra) + '</div>' : '') + '</div>' +
+        (c ? '<div class="monto"><b>' + SJ.dinero(c.usd) + '</b><span class="mut">' + SJ.dinero(c.usd / p.ha) + '/ha</span></div>' : '') + '</div>';
+    }
+    var h = '<button class="btn" type="button" data-nueva="' + p.id + '">＋ ' + esc(T('nuevaVisita')) + '</button>';
+    h += campanas().map(function (c) {
+      var tot = (c.ver && costos[c.ver] ? costos[c.ver].usd : 0) + (c.inv && costos[c.inv] ? costos[c.inv].usd : 0);
+      var nombre = c.ver ? c.ver.replace(/^20/, '') : c.inv.replace('inv ', '');
+      return '<div class="tarjeta campana"><div class="camp-tit"><b>' + esc(T('campana')) + ' ' + esc(nombre) + '</b>' +
+        (tot ? '<span>' + SJ.dinero(tot) + ' · ' + SJ.dinero(tot / p.ha) + '/ha</span>' : '') + '</div>' +
+        fila(c.ver, '☀️') + fila(c.inv, '❄️') + '</div>';
+    }).join('');
     var nm = cfg.idioma === 'pt' ? ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
       : ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     h += '<h3>' + esc(T('planMensual')) + '</h3><div class="meses">';
     for (var m = 1; m <= 12; m++) h += '<div class="' + (m === mesHoy ? 'actual' : '') + '"><b>' + nm[m - 1] + '</b>' + esc(p.mensal[m] || '') + '</div>';
-    h += '</div>' + (SJ.fichaExtra ? SJ.fichaExtra(p) : '') + '<h3>' + esc(T('historial')) + '</h3>' + listaVisitas(function (v) { return v.potreiro_id === p.id; });
-    $('#tela-ficha').innerHTML = h;
+    return h + '</div>';
   }
-
   function listaVisitas(filtro) {
     var l = todasLasVisitas().filter(function (x) { return !filtro || filtro(x.v); });
     if (!l.length) return '<div class="vacio">' + esc(T('sinVisitas')) + '</div>';
@@ -833,6 +878,7 @@
     else if (d.pot) { mapa.closePopup(); ir('ficha', d.pot); }
     else if (d.nueva) ir('visita', borrador && borrador.potreiro_id === d.nueva ? null : { nueva: true, potrero: d.nueva });
     else if (d.detalle) ir('detalle', d.detalle);
+    else if (d.cap) { fichaCap = d.cap; vistaFicha(fichaActual); }
     else if (d.filtro) { filtroPot = d.filtro; vistaPotreros(); }
     else if (d.modo) { modoPot = d.modo; vistaPotreros(); }
     else if (d.sync) sincronizar(true);

@@ -180,3 +180,22 @@ button.opcion b{display:block;font-size:17px;color:var(--azul);margin-bottom:4px
 .a-marca{font-size:11px;font-weight:700;color:var(--gris);margin-bottom:4px}
 .burbuja.yo .a-marca{color:#dfe7f5}
 .burbuja.espera{color:var(--texto);background:#fff7e6;border:1px dashed var(--dorado)}
+
+/* Ficha del potrero: capítulos y rotación por campaña */
+.caps{position:sticky;top:-12px;z-index:5;background:var(--fondo);padding:8px 0 6px;margin-top:4px}
+.caps button{flex:1;font-family:var(--display)}
+.campana{padding:10px 12px}
+.camp-tit{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;font-family:var(--display);color:var(--azul)}
+.camp-tit span{font-size:13px;color:var(--gris);font-family:var(--cuerpo);font-weight:600}
+.camp-per{display:flex;gap:10px;align-items:center;padding:8px 6px;border-top:1px solid var(--linea);border-radius:8px}
+.camp-per>i{flex:none;width:6px;align-self:stretch;border-radius:3px}
+.camp-per.actual{background:#fff7e6;outline:2px solid var(--dorado)}
+.camp-per .ahora{color:#9a6a0a}
+.camp-per .chip{margin-left:4px;vertical-align:1px}
+.camp-per .monto{text-align:right;display:flex;flex-direction:column;font-size:14px;white-space:nowrap}
+.chico{font-size:12px}
+.cap-zafra{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:14px 2px 6px;color:var(--azul);font-family:var(--display)}
+.cap-zafra span{font-size:13px;color:var(--gris);font-family:var(--cuerpo);font-weight:600}
+.parte{font-size:12px;margin:-6px 4px 10px}
+.nota{font-size:12px;margin:4px 2px 12px}
+.camp-per .crece{flex:1;min-width:0}

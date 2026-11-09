@@ -19,7 +19,8 @@
     faltaTotal: 'Falta el total (cantidad × precio o el total directo).', faltaItem: 'Elegí o creá el producto o labor.',
     sinGastos: 'Todavía no hay gastos.', exportarCsv: 'Exportar CSV para contabilidad', todasZafras: 'Todas',
     porPotrero: 'Por potrero', porActividad: 'Por actividad', porPagador: 'Por quién pagó', porHa: '/ha',
-    costoPotrero: 'Costos', sinTc: 'sin tipo de cambio', equivalente: 'equivale a',
+    costoPotrero: 'Costos', sinTc: 'sin tipo de cambio', porZafra: 'Por campaña', sinZafra: 'Sin campaña',
+    parteDe: 'Compartido con otros potreros: le toca el', notaReparto: 'Los gastos de varios potreros se reparten por hectáreas.', equivalente: 'equivale a',
     pendienteG: 'Pendiente de enviar', enviadoG: 'Enviado', borrarG: 'Borrar este gasto',
     confirmarBorrarG: '¿Borrar este gasto? Todavía no se envió.', verComprobante: 'Ver comprobante',
     actividades: { siembra: 'Siembra', fertilizacion: 'Fertilización', aplicacion: 'Aplicación (herbicida, insecticida, fungicida)',
@@ -38,7 +39,8 @@
     faltaTotal: 'Falta o total (quantidade × preço ou o total direto).', faltaItem: 'Escolha ou crie o produto ou operação.',
     sinGastos: 'Ainda não há gastos.', exportarCsv: 'Exportar CSV para a contabilidade', todasZafras: 'Todas',
     porPotrero: 'Por potreiro', porActividad: 'Por atividade', porPagador: 'Por quem pagou', porHa: '/ha',
-    costoPotrero: 'Custos', sinTc: 'sem câmbio', equivalente: 'equivale a',
+    costoPotrero: 'Custos', sinTc: 'sem câmbio', porZafra: 'Por safra', sinZafra: 'Sem safra',
+    parteDe: 'Compartilhado com outros potreiros: cabe a este', notaReparto: 'Os gastos de vários potreiros são divididos por hectares.', equivalente: 'equivale a',
     pendienteG: 'Pendente de envio', enviadoG: 'Enviado', borrarG: 'Apagar este gasto',
     confirmarBorrarG: 'Apagar este gasto? Ainda não foi enviado.', verComprobante: 'Ver comprovante',
     actividades: { siembra: 'Semeadura', fertilizacion: 'Adubação', aplicacion: 'Aplicação (herbicida, inseticida, fungicida)',
@@ -370,21 +372,72 @@
   }
 
   // ------------------------------------------------------------ ficha del potrero
-  SJ.fichaExtra = function (p) {
-    var porZafra = {};
+  // ------------------------------------------------------------ ficha del potrero
+  // Un gasto de varios potreros se reparte por hectáreas: a cada potrero le toca su parte.
+  function gastosDePotrero(p) {
+    var l = [];
     todosLosGastos().forEach(function (x) {
       var g = x.g; if (!g.potreiro_ids || g.potreiro_ids.indexOf(p.id) < 0) return;
       var haTot = g.potreiro_ids.reduce(function (a, id) { var q = SJ.potrero(id); return a + (q ? q.ha : 0); }, 0);
-      var z = g.zafra || '—';
-      porZafra[z] = (porZafra[z] || 0) + (num(g.total_usd) || 0) * (haTot ? p.ha / haTot : 1);   // parte por hectáreas
+      var k = haTot ? p.ha / haTot : 1;
+      l.push({ x: x, k: k, usd: (num(g.total_usd) || 0) * k, brl: (num(g.total_brl) || 0) * k, compartido: g.potreiro_ids.length > 1 });
     });
-    var orden = SJ.datos().periodos.filter(function (z) { return porZafra[z] !== undefined; });
-    var filas = orden.length ? '<table class="tabla-costos"><tbody>' + orden.map(function (z) {
-      return '<tr><td>' + esc(SJ.etiquetaPer(z)) + '</td><td class="num">' + dinero(porZafra[z], 'USD') + '</td><td class="num mut">' +
-        dinero(porZafra[z] / p.ha, 'USD') + esc(T('porHa')) + '</td></tr>';
-    }).join('') + '</tbody></table>' : '<div class="mut">' + esc(T('sinGastos')) + '</div>';
-    return '<h3>' + esc(T('costoPotrero')) + '</h3><div class="tarjeta">' + filas +
-      '<button class="btn chico" type="button" data-g-nuevo-pot="' + p.id + '" style="margin-top:8px">＋ ' + esc(T('nuevoGastoT')) + '</button></div>';
+    return l;
+  }
+  SJ.dinero = function (n) { return dinero(n, 'USD'); };
+  SJ.costoPorPeriodo = function (p) {
+    var r = {};
+    gastosDePotrero(p).forEach(function (y) {
+      var z = y.x.g.zafra || '—'; r[z] = r[z] || { usd: 0, n: 0 }; r[z].usd += y.usd; r[z].n++;
+    });
+    return r;
+  };
+  function botonNuevo(p) {
+    return '<button class="btn" type="button" data-g-nuevo-pot="' + p.id + '">＋ ' + esc(T('nuevoGastoT')) + '</button>';
+  }
+  SJ.fichaGastos = function (p) {
+    var l = gastosDePotrero(p), h = botonNuevo(p);
+    if (!l.length) return h + '<div class="vacio">' + esc(T('sinGastos')) + '</div>';
+    var orden = SJ.datos().periodos.concat(['—']), grupos = {};
+    l.forEach(function (y) { var z = y.x.g.zafra || '—'; (grupos[z] = grupos[z] || []).push(y); });
+    Object.keys(grupos).forEach(function (z) { if (orden.indexOf(z) < 0) orden.push(z); });
+    orden.forEach(function (z) {
+      var g = grupos[z]; if (!g) return;
+      var tot = g.reduce(function (a, y) { return a + y.usd; }, 0);
+      h += '<div class="cap-zafra"><b>' + esc(z === '—' ? T('sinZafra') : SJ.etiquetaPer(z)) + '</b><span>' + dinero(tot, 'USD') +
+        ' · ' + dinero(tot / p.ha, 'USD') + esc(T('porHa')) + '</span></div>';
+      h += g.map(function (y) {
+        return tarjetaGasto(y.x) + (y.compartido ? '<div class="parte mut">' + esc(T('parteDe')) + ' ' + fmt(y.k * 100, 0) + ' % → ' +
+          dinero(y.usd, 'USD') + '</div>' : '');
+      }).join('');
+    });
+    return h;
+  };
+  SJ.fichaCostos = function (p) {
+    var l = gastosDePotrero(p);
+    if (!l.length) return botonNuevo(p) + '<div class="vacio">' + esc(T('sinGastos')) + '</div>';
+    var usd = 0, brl = 0, porZ = {}, porAct = {}, porPag = {}, hayComp = false;
+    l.forEach(function (y) {
+      var g = y.x.g; usd += y.usd; brl += y.brl; if (y.compartido) hayComp = true;
+      var z = g.zafra || '—'; porZ[z] = (porZ[z] || 0) + y.usd;
+      porAct[g.actividad] = (porAct[g.actividad] || 0) + y.usd;
+      porPag[g.pagador] = (porPag[g.pagador] || 0) + y.usd;
+    });
+    var h = '<div class="resumen"><div class="tarjeta"><b>' + dinero(usd, 'USD') + '</b><span class="mut">' + dinero(brl, 'BRL') +
+      '</span></div><div class="tarjeta"><b>' + dinero(usd / p.ha, 'USD') + esc(T('porHa')) + '</b><span class="mut">' + fmt(p.ha, 0) + ' ha</span></div></div>';
+    function bloque(tit, obj, nom, orden, conHa) {
+      var ks = orden || Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
+      return '<h3>' + esc(tit) + '</h3><div class="tarjeta"><table class="tabla-costos"><tbody>' + ks.filter(function (k) { return obj[k] !== undefined; })
+        .map(function (k) {
+          return '<tr><td>' + esc(nom(k)) + '</td><td class="num">' + dinero(obj[k], 'USD') + '</td>' +
+            (conHa ? '<td class="num mut">' + dinero(obj[k] / p.ha, 'USD') + esc(T('porHa')) + '</td>' : '') + '</tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    var ordZ = SJ.datos().periodos.concat(Object.keys(porZ).filter(function (z) { return SJ.datos().periodos.indexOf(z) < 0; }));
+    h += bloque(T('porZafra'), porZ, function (z) { return z === '—' ? T('sinZafra') : SJ.etiquetaPer(z); }, ordZ, true);
+    h += bloque(T('porActividad'), porAct, nombreAct, null, true) + bloque(T('porPagador'), porPag, function (k) { return k; });
+    if (hayComp) h += '<div class="mut nota">' + esc(T('notaReparto')) + '</div>';
+    return h + botonNuevo(p);
   };
 
   // ------------------------------------------------------------ eventos
