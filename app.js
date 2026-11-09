@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v10';
+  var VERSION = '2026-11-09 v11';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -60,6 +60,7 @@
       fotosEnviadas: 'Fotos ya enviadas (tocá × para sacarla)', servidorViejo: 'el servidor todavía no tiene la actualización para editar o borrar visitas.',
       compartir: '📤 Enviar por mail o WhatsApp', armandoPdf: 'Armando el PDF…', pdfBajado: 'Este equipo no deja compartir archivos: el PDF quedó en Descargas.',
       visitaCampo: 'Visita de campo', fotosDrive: 'Fotos en el Drive',
+      tocarFoto: 'Tocá una foto para abrirla en el Drive y descargarla.', fotosDescargar: 'Fotos para descargar (Drive)',
       verFoto: 'Ver foto', respaldo: 'Exportar respaldo (JSON)', nPend: 'visitas sin enviar',
       sinRemanente: '', satelite: 'Satélite (con internet)', imagen: 'Imagen de los potreros',
       semente_azevem: 'Semilla raigrás', semente_festuca: 'Semilla festuca', semente_leguminosa: 'Semilla leguminosa',
@@ -113,6 +114,7 @@
       fotosEnviadas: 'Fotos já enviadas (toque × para tirar)', servidorViejo: 'o servidor ainda não tem a atualização para editar ou apagar visitas.',
       compartir: '📤 Enviar por e-mail ou WhatsApp', armandoPdf: 'Montando o PDF…', pdfBajado: 'Este aparelho não permite compartilhar arquivos: o PDF ficou em Downloads.',
       visitaCampo: 'Visita de campo', fotosDrive: 'Fotos no Drive',
+      tocarFoto: 'Toque uma foto para abrir no Drive e baixar.', fotosDescargar: 'Fotos para baixar (Drive)',
       verFoto: 'Ver foto', respaldo: 'Exportar backup (JSON)', nPend: 'visitas não enviadas',
       sinRemanente: '', satelite: 'Satélite (com internet)', imagen: 'Imagem dos potreiros',
       semente_azevem: 'Semente azevém', semente_festuca: 'Semente festuca', semente_leguminosa: 'Semente leguminosa',
@@ -770,23 +772,58 @@
     var loc = locales.filter(function (y) { return y.id === v.id; })[0];
     var minis = loc && loc.fotos ? loc.fotos.filter(function (f) { return f && f.mini; }) : [];
     var urls = (Array.isArray(v.fotos) && typeof v.fotos[0] === 'string') ? v.fotos : ((loc && loc.fotosUrl) || []);
-    if (minis.length) {
-      h += '<div class="fotos" id="det-fotos"></div>';
+    // Fotos ya en el Drive: se ven desde el servidor (en cualquier teléfono o compu) y al tocarlas se abren en el Drive.
+    // Fotos todavía sin enviar: las miniaturas del teléfono.
+    var mismas = urls.length && minis.length === urls.length && !(loc && loc.op === 'editar');
+    if (urls.length || minis.length) {
+      h += '<div class="fotos fotos-det" id="det-fotos"></div>' + (urls.length ? '<div class="mut pista-fotos">' + esc(T('tocarFoto')) + '</div>' : '');
     }
-    if (urls.length) h += '<div class="tarjeta">' + urls.map(function (u, i) {
-      return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(T('verFoto')) + ' ' + (i + 1) + '</a>';
-    }).join(' · ') + '</div>';
     h += '<button class="btn" type="button" data-compartir="' + esc(v.id) + '">' + esc(T('compartir')) + '</button>' +
       '<button class="btn sec" type="button" data-editar="' + esc(v.id) + '">' + esc(T('editar')) + '</button>' +
       '<button class="btn peligro" type="button" data-borrar="' + esc(v.id) + '">' + esc(T('borrar')) + '</button>';
     $('#tela-detalle').innerHTML = h;
-    if (minis.length) {
-      var cont = $('#det-fotos');
+    var cont = $('#det-fotos');
+    if (!cont) return;
+    if (urls.length) {
+      urls.forEach(function (u, i) {
+        var a = document.createElement('a'), img = document.createElement('img');
+        a.href = u; a.target = '_blank'; a.rel = 'noopener'; a.className = 'cargando';
+        a.appendChild(img); cont.appendChild(a);
+        var pr = mismas ? Promise.resolve(minis[i].mini) : fotoBlob(u);
+        pr.then(function (b) {
+          if (b) { img.src = URL.createObjectURL(b); a.classList.remove('cargando'); }
+          else { a.classList.remove('cargando'); a.classList.add('sin-foto'); a.textContent = T('verFoto') + ' ' + (i + 1); }
+        });
+      });
+    } else {
       minis.forEach(function (f) {
         var d = document.createElement('div'), img = document.createElement('img');
         img.src = URL.createObjectURL(f.mini); d.appendChild(img); cont.appendChild(d);
       });
     }
+  }
+
+  // Foto del Drive: se pide al servidor una vez y queda guardada en el equipo (se ve también sin señal).
+  function idDrive(u) {
+    var m = String(u || '').match(/\/d\/([\w-]{20,})/) || String(u || '').match(/[?&]id=([\w-]{20,})/);
+    return m ? m[1] : '';
+  }
+  function fotoBlob(u) {
+    var id = idDrive(u);
+    if (!id) return Promise.resolve(null);
+    return kvGet('foto:' + id).then(function (b) {
+      if (b) return b;
+      if (!cfg.url || !cfg.clave) return null;
+      return fetchT(cfg.url + '?accion=foto&clave=' + encodeURIComponent(cfg.clave) + '&id=' + encodeURIComponent(id), {}, 45000)
+        .then(function (r) { return r.json(); }).then(function (j) {
+          if (!j.ok || !j.base64) return null;
+          var bin = atob(j.base64), arr = new Uint8Array(bin.length);
+          for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+          var blob = new Blob([arr], { type: j.tipo || 'image/jpeg' });
+          kvSet('foto:' + id, blob);
+          return blob;
+        });
+    }).catch(function () { return null; });
   }
 
   // ---------------------------------------------------------------- formulario de visita
@@ -1024,8 +1061,9 @@
   }
   // d = { encabezado, titulo, sub, filas: [[etiqueta, valor]], blobs: [fotos], urls: [links], urlsTit }
   function hacerPdf(d) {
-    var blobs = d.blobs || [], urls = d.urls || [];
-    return Promise.all([cargarImagen('logo-barra.png')].concat(blobs.map(function (b) {
+    var urls = d.urls || [];
+    return Promise.resolve(d.blobs || []).then(function (blobs) {
+      return Promise.all([cargarImagen('logo-barra.png')].concat(blobs.filter(Boolean).map(function (b) {
       return window.createImageBitmap ? createImageBitmap(b).catch(function () { return null; }) : cargarImagen(URL.createObjectURL(b));
     }))).then(function (imgs) {
       var logo = imgs[0], fotos = imgs.slice(1).filter(Boolean);
@@ -1096,6 +1134,7 @@
         return jb.arrayBuffer().then(function (ab) { return pdfDeJpeg(new Uint8Array(ab), W, alto); });
       });
     });
+    });
   }
   function fechaDMA(fecha) {
     var f = String(fecha || '').slice(0, 10).split('-');
@@ -1107,12 +1146,22 @@
     var v = x.v;
     var loc = locales.filter(function (y) { return y.id === v.id; })[0];
     var informe = T('visitaCampo') + ' - Estância São José - ' + (v.potreiro || '') + (fechaDMA(v.fecha) ? ' - ' + fechaDMA(v.fecha) : '');
-    var texto = informe + '\n' + String(v.fecha || '').replace('T', ' ').slice(11, 16) + ' · ' + (v.usuario || '');
+    var urls = (Array.isArray(v.fotos) && typeof v.fotos[0] === 'string') ? v.fotos : ((loc && loc.fotosUrl) || []);
+    var propias = loc && loc.fotos ? loc.fotos.filter(Boolean) : [];
+    var mismas = urls.length && propias.length === urls.length && loc.op !== 'editar';
+    // Fotos del informe: las del Drive en tamaño completo (bajadas por el servidor); si no se pueden, las del teléfono.
+    var blobs = !urls.length ? propias.map(function (f) { return f.grande || f.mini; }) :
+      Promise.all(urls.map(function (u, i) {
+        return fotoBlob(u).then(function (b) { return b || (mismas ? (propias[i].grande || propias[i].mini) : null); });
+      })).then(function (l) {
+        // En una edición sin enviar, las fotos nuevas todavía están solo en el teléfono.
+        return l.concat(loc && !loc.enviada && loc.op === 'editar' ? propias.filter(function (f) { return f.grande; }).map(function (f) { return f.grande; }) : []);
+      });
+    var texto = informe + '\n' + String(v.fecha || '').replace('T', ' ').slice(11, 16) + ' · ' + (v.usuario || '') +
+      (urls.length ? '\n\n' + T('fotosDescargar') + ':\n' + urls.join('\n') : '');
     compartirPdf(informe, texto, {
       encabezado: T('visitaCampo'), titulo: v.potreiro, sub: String(v.fecha || '').replace('T', ' ').slice(0, 16) + ' · ' + (v.usuario || ''),
-      filas: filasVisita(v),
-      blobs: loc && loc.fotos ? loc.fotos.map(function (f) { return f && (f.grande || f.mini); }).filter(Boolean) : [],
-      urls: (Array.isArray(v.fotos) && typeof v.fotos[0] === 'string') ? v.fotos : ((loc && loc.fotosUrl) || [])
+      filas: filasVisita(v), blobs: blobs, urls: urls
     });
   }
   // El nombre del informe es el asunto del mail y el nombre del archivo.

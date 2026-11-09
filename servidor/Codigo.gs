@@ -153,10 +153,47 @@ function claveOk_(clave) {
   return c && clave === c;
 }
 
-function guardarFoto_(base64, nombre) {
+/** Guarda una foto en la carpeta de fotos. Las de visitas (publica = true) quedan visibles para
+ *  cualquiera que tenga el link, así se ven en la app y se pueden bajar; los comprobantes no. */
+function guardarFoto_(base64, nombre, publica) {
   const carpeta = DriveApp.getFolderById(PropertiesService.getScriptProperties().getProperty('FOTOS'));
   const blob = Utilities.newBlob(Utilities.base64Decode(base64), 'image/jpeg', nombre);
-  return carpeta.createFile(blob).getUrl();
+  const f = carpeta.createFile(blob);
+  if (publica) compartirArchivo_(f);
+  return f.getUrl();
+}
+
+function compartirArchivo_(f) {
+  try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) { Logger.log('No se pudo compartir ' + f.getName() + ': ' + err); }
+}
+
+function idDeUrl_(u) {
+  const m = String(u || '').match(/\/d\/([\w-]{20,})/) || String(u || '').match(/[?&]id=([\w-]{20,})/);
+  return m ? m[1] : '';
+}
+
+/** Una sola vez: comparte por link las fotos de visitas que se guardaron antes de este cambio. */
+function compartirFotosViejas_() {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('FOTOS_COMPARTIDAS')) return;
+  leerHoja_(hoja_(), COLUMNAS).forEach(function (v) {
+    String(v.fotos || '').split(' ').forEach(function (u) {
+      const id = idDeUrl_(u);
+      if (id) { try { compartirArchivo_(DriveApp.getFileById(id)); } catch (err) { Logger.log(err); } }
+    });
+  });
+  props.setProperty('FOTOS_COMPARTIDAS', new Date().toISOString());
+}
+
+/** Devuelve una foto de la carpeta de fotos en base64 (para armar el PDF en el teléfono). */
+function leerFoto_(id) {
+  const carpeta = PropertiesService.getScriptProperties().getProperty('FOTOS');
+  const f = DriveApp.getFileById(id);
+  const padres = f.getParents();
+  let enCarpeta = false;
+  while (padres.hasNext()) if (padres.next().getId() === carpeta) enCarpeta = true;
+  if (!enCarpeta) return { ok: false, error: 'foto' };
+  return { ok: true, base64: Utilities.base64Encode(f.getBlob().getBytes()), tipo: f.getMimeType() };
 }
 
 // ---------------------------------------------------------------- entradas
@@ -169,7 +206,13 @@ function doGet(e) {
     if (!f) return responder_({ ok: false, error: 'sin-datos' });
     return responder_({ ok: true, datos: JSON.parse(f.getBlob().getDataAsString('UTF-8')) });
   }
-  if (p.accion === 'visitas') return responder_({ ok: true, visitas: leerVisitas_() });
+  if (p.accion === 'visitas') {
+    try { compartirFotosViejas_(); } catch (err) { Logger.log(err); }
+    return responder_({ ok: true, visitas: leerVisitas_() });
+  }
+  if (p.accion === 'foto' && p.id) {
+    try { return responder_(leerFoto_(p.id)); } catch (err) { return responder_({ ok: false, error: 'foto' }); }
+  }
   if (p.accion === 'gastos') return responder_({ ok: true, gastos: leerGastos_(p.desde) });
   if (p.accion === 'productos') return responder_({ ok: true, productos: leerHoja_(hojaProductos_(), COLUMNAS_PRODUCTOS) });
   return responder_({ ok: true, ping: new Date().toISOString() });
@@ -218,7 +261,7 @@ function guardarVisita_(v) {
   // Si la visita ya llegó (reintento), no se duplica.
   if (existeId_(hoja, v.id)) return { ok: true, id: v.id, repetida: true };
   const enlaces = (v.fotos || []).map(function (f, i) {
-    return guardarFoto_(f.base64, [String(v.fecha).slice(0, 10), v.potreiro, v.usuario, i + 1].join(' - ') + '.jpg');
+    return guardarFoto_(f.base64, [String(v.fecha).slice(0, 10), v.potreiro, v.usuario, i + 1].join(' - ') + '.jpg', true);
   });
   const fila = COLUMNAS.map(function (c) {
     if (c === 'fotos') return enlaces.join(' ');
@@ -244,7 +287,7 @@ function editarVisita_(v) {
   if (!n) return guardarVisita_(v);
   const antes = hoja.getRange(n, 1, 1, COLUMNAS.length).getValues()[0];
   const nuevas = (v.fotos || []).map(function (f, i) {
-    return guardarFoto_(f.base64, [String(v.fecha).slice(0, 10), v.potreiro, v.usuario, 'edit', i + 1].join(' - ') + '.jpg');
+    return guardarFoto_(f.base64, [String(v.fecha).slice(0, 10), v.potreiro, v.usuario, 'edit', i + 1].join(' - ') + '.jpg', true);
   });
   const enlaces = (v.fotosPrevias || []).concat(nuevas);
   const fila = COLUMNAS.map(function (c, i) {
