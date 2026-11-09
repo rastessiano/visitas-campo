@@ -22,9 +22,10 @@
       estasEn: 'Estás en', fueraCampo: 'Fuera de los potreros', buscandoGps: 'Buscando GPS…',
       nuevaAqui: 'Visita aquí', ha: 'ha', usoAhora: 'Uso ahora', planMes: 'Plan del mes',
       rotacion: 'Rotación', planMensual: 'Plan mensual (planilla)', historial: 'Visitas',
+      reproducir: 'Recorrer las estaciones', volverHoy: 'Volver a hoy', lineaTiempo: 'Línea de tiempo',
       verPlan: 'Plan mensual (planilla)', volverFicha: 'Volver a la ficha', visitasF: 'Visitas (fechas)',
       planNota: 'Lo que la planilla del campo prevé para cada potrero, mes a mes. Tocá un potrero para abrir su ficha.',
-      campana: 'Campaña', ahora: 'ahora', cultivoF: 'Cultivo', costoF: 'Costo', costoHaF: 'Costo/ha', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
+      campana: 'Campaña', cultivoF: 'Cultivo', costoF: 'Costo', costoHaF: 'Costo/ha', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
       sinVisitas: 'Todavía no hay visitas.', nuevaVisita: 'Nueva visita', verMapa: 'Ver en el mapa',
       todos: 'Todos', semente: 'Semilla', pastagem: 'Pastura', soja: 'Soja', arroz: 'Arroz',
       nativo: 'Campo nativo', resteva: 'Rastrojo', outro: 'Otro', colheita: 'en cosecha',
@@ -68,9 +69,10 @@
       estasEn: 'Você está em', fueraCampo: 'Fora dos potreiros', buscandoGps: 'Buscando GPS…',
       nuevaAqui: 'Visita aqui', ha: 'ha', usoAhora: 'Uso agora', planMes: 'Plano do mês',
       rotacion: 'Rotação', planMensual: 'Plano mensal (planilha)', historial: 'Visitas',
+      reproducir: 'Percorrer as estações', volverHoy: 'Voltar a hoje', lineaTiempo: 'Linha do tempo',
       verPlan: 'Plano mensal (planilha)', volverFicha: 'Voltar à ficha', visitasF: 'Visitas (datas)',
       planNota: 'O que a planilha do campo prevê para cada potreiro, mês a mês. Toque num potreiro para abrir a ficha.',
-      campana: 'Safra', ahora: 'agora', cultivoF: 'Cultura', costoF: 'Custo', costoHaF: 'Custo/ha', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
+      campana: 'Safra', cultivoF: 'Cultura', costoF: 'Custo', costoHaF: 'Custo/ha', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
       sinVisitas: 'Ainda não há visitas.', nuevaVisita: 'Nova visita', verMapa: 'Ver no mapa',
       todos: 'Todos', semente: 'Semente', pastagem: 'Pastagem', soja: 'Soja', arroz: 'Arroz',
       nativo: 'Campo nativo', resteva: 'Resteva', outro: 'Outro', colheita: 'em colheita',
@@ -412,7 +414,7 @@
     mapa._limites = L.latLngBounds(todos); mapa._encuadrado = false;
     if (telaActual === 'mapa') encuadrar();
     pintarPoligonos();
-    leyenda();
+    leyenda(); lineaTiempo();
     iniciarGps();
   }
   function encuadrar() {
@@ -444,17 +446,54 @@
   function etiquetaPer(per) {
     return /^inv/.test(per) ? T('invierno') + ' ' + per.replace('inv ', '') : T('verano') + ' ' + per.replace(/^20/, '');
   }
+  // Leyenda con hectáreas por cultivo de la estación que se ve, y línea de tiempo para recorrer las estaciones.
   function leyenda() {
-    var sel = '<select id="sel-periodo" aria-label="' + esc(T('ver')) + '"><option value="ahora">' + esc(T('ahora')) + '</option>' +
-      datos.periodos.map(function (p) {
-        return '<option value="' + esc(p) + '"' + (p === periodoMapa ? ' selected' : '') + '>' + esc(etiquetaPer(p)) + '</option>';
-      }).join('') + '</select>';
-    $('#leyenda').innerHTML = sel + TIPOS.filter(function (t) { return t !== 'outro'; }).map(function (c) {
-      return '<div><i style="background:' + colorTipo(c) + '"></i>' + esc(nombreTipo(c)) + '</div>';
+    var tot = {};
+    datos.potreiros.forEach(function (p) {
+      var t = periodoMapa === 'ahora' ? usoAhora(p).tipo : clasificar(p.rotacao[periodoMapa]);
+      tot[t] = (tot[t] || 0) + p.ha;
+    });
+    $('#leyenda').innerHTML = TIPOS.filter(function (t) { return t !== 'outro' || tot[t]; }).map(function (c) {
+      return '<div class="' + (tot[c] ? '' : 'cero') + '"><i style="background:' + colorTipo(c) + '"></i>' + esc(nombreTipo(c)) +
+        '<b>' + (tot[c] ? Math.round(tot[c]) : '') + '</b></div>';
     }).join('');
-    $('#sel-periodo').onchange = function () { periodoMapa = this.value; pintarPoligonos(); };
     L.DomEvent.disableClickPropagation($('#leyenda'));
   }
+  var animando = null;
+  function lineaTiempo() {
+    var pers = datos.periodos, hoyPer = periodoDe(new Date()), iHoy = pers.indexOf(hoyPer);
+    var i = periodoMapa === 'ahora' ? iHoy : pers.indexOf(periodoMapa);
+    var el = $('#linea');
+    el.innerHTML = '<div class="linea-fila"><button type="button" class="linea-play" id="linea-play" aria-label="' + esc(T('reproducir')) + '">' +
+      (animando ? '❚❚' : '▶') + '</button><div class="linea-txt"><b id="linea-et">' + esc(etiquetaPer(pers[i])) + '</b>' +
+      '<span id="linea-hoy" class="' + (i === iHoy ? '' : 'oculto') + '">' + esc(T('ahora')) + '</span></div>' +
+      (i !== iHoy ? '<button type="button" class="linea-volver" id="linea-volver">' + esc(T('volverHoy')) + '</button>' : '') + '</div>' +
+      '<input type="range" id="linea-rango" min="0" max="' + (pers.length - 1) + '" step="1" value="' + i + '" aria-label="' + esc(T('lineaTiempo')) + '">' +
+      '<div class="linea-marcas">' + pers.map(function (p, k) {
+        return '<span class="' + (k === iHoy ? 'hoy ' : '') + (k === i ? 'sel' : '') + '" data-linea="' + k + '">' +
+          esc(/^inv/.test(p) ? '❄️ ' + p.replace('inv ', '') : '☀️ ' + p.replace(/^20/, '')) + '</span>';
+      }).join('') + '</div>';
+    function ir_(k) {
+      periodoMapa = k === iHoy ? 'ahora' : pers[k];
+      pintarPoligonos(); leyenda(); lineaTiempo();
+    }
+    $('#linea-rango').oninput = function () { pararAnim(); ir_(Number(this.value)); };
+    el.querySelectorAll('[data-linea]').forEach(function (s) { s.onclick = function () { pararAnim(); ir_(Number(s.dataset.linea)); }; });
+    if ($('#linea-volver')) $('#linea-volver').onclick = function () { pararAnim(); ir_(iHoy); };
+    $('#linea-play').onclick = function () {
+      if (animando) { pararAnim(); lineaTiempo(); return; }
+      var k = i >= pers.length - 1 ? 0 : i + 1;
+      ir_(k);
+      animando = setInterval(function () {
+        var actual = periodoMapa === 'ahora' ? iHoy : pers.indexOf(periodoMapa);
+        if (actual >= pers.length - 1) { pararAnim(); lineaTiempo(); return; }
+        ir_(actual + 1);
+      }, 1400);
+      lineaTiempo();
+    };
+    L.DomEvent.disableClickPropagation(el);
+  }
+  function pararAnim() { if (animando) { clearInterval(animando); animando = null; } }
   var gpsWatch = null;
   function iniciarGps() {
     if (!navigator.geolocation || gpsWatch !== null) return;
@@ -875,7 +914,7 @@
         cfg.clave = $('#c-clave').value.trim();
         kvSet('cfg', cfg).then(function () {
           textos(); aviso(T('ajustesOk'));
-          if (mapa) { leyenda(); }
+          if (mapa) { leyenda(); lineaTiempo(); }
           if (!datos && cfg.url) bajarDatos(); else vistaConfig();
         });
       };
