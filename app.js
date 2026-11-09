@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v7';
+  var VERSION = '2026-11-09 v8';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -1089,14 +1089,17 @@
     if (!x) return;
     var v = x.v;
     aviso(T('armandoPdf'));
-    var nombre = ('Visita ' + String(v.fecha || '').slice(0, 10) + ' ' + (v.potreiro || '')).replace(/[\\/:*?"<>|]/g, '-').trim() + '.pdf';
-    var texto = T('visitaCampo') + ' — ' + (v.potreiro || '') + ' — ' + String(v.fecha || '').replace('T', ' ').slice(0, 16) + ' — ' + (v.usuario || '');
+    // El nombre del informe es el asunto del mail y el nombre del archivo.
+    var f = String(v.fecha || '').slice(0, 10).split('-');
+    var informe = T('visitaCampo') + ' - Estância São José - ' + (v.potreiro || '') + (f.length === 3 ? ' - ' + f[2] + '/' + f[1] + '/' + f[0] : '');
+    var nombre = informe.replace(/\//g, '-').replace(/[\\:*?"<>|]/g, '-').trim() + '.pdf';
+    var texto = informe + '\n' + String(v.fecha || '').replace('T', ' ').slice(11, 16) + ' · ' + (v.usuario || '');
     (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
       return hacerPdfVisita(v);
     }).then(function (blob) {
       var file = new File([blob], nombre, { type: 'application/pdf' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        return navigator.share({ files: [file], title: nombre, text: texto }).catch(function (e) {
+        return navigator.share({ files: [file], title: informe, text: texto }).catch(function (e) {
           if (e && e.name !== 'AbortError') aviso(e.message);
         });
       }
