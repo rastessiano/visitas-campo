@@ -22,6 +22,8 @@
       estasEn: 'Estás en', fueraCampo: 'Fuera de los potreros', buscandoGps: 'Buscando GPS…',
       nuevaAqui: 'Visita aquí', ha: 'ha', usoAhora: 'Uso ahora', planMes: 'Plan del mes',
       rotacion: 'Rotación', planMensual: 'Plan mensual (planilla)', historial: 'Visitas',
+      verPlan: 'Plan mensual (planilla)', volverFicha: 'Volver a la ficha', visitasF: 'Visitas (fechas)',
+      planNota: 'Lo que la planilla del campo prevé para cada potrero, mes a mes. Tocá un potrero para abrir su ficha.',
       campana: 'Campaña', ahora: 'ahora', cultivoF: 'Cultivo', costoF: 'Costo', costoHaF: 'Costo/ha', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
       sinVisitas: 'Todavía no hay visitas.', nuevaVisita: 'Nueva visita', verMapa: 'Ver en el mapa',
       todos: 'Todos', semente: 'Semilla', pastagem: 'Pastura', soja: 'Soja', arroz: 'Arroz',
@@ -66,6 +68,8 @@
       estasEn: 'Você está em', fueraCampo: 'Fora dos potreiros', buscandoGps: 'Buscando GPS…',
       nuevaAqui: 'Visita aqui', ha: 'ha', usoAhora: 'Uso agora', planMes: 'Plano do mês',
       rotacion: 'Rotação', planMensual: 'Plano mensal (planilha)', historial: 'Visitas',
+      verPlan: 'Plano mensal (planilha)', volverFicha: 'Voltar à ficha', visitasF: 'Visitas (datas)',
+      planNota: 'O que a planilha do campo prevê para cada potreiro, mês a mês. Toque num potreiro para abrir a ficha.',
       campana: 'Safra', ahora: 'agora', cultivoF: 'Cultura', costoF: 'Custo', costoHaF: 'Custo/ha', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
       sinVisitas: 'Ainda não há visitas.', nuevaVisita: 'Nova visita', verMapa: 'Ver no mapa',
       todos: 'Todos', semente: 'Semente', pastagem: 'Pastagem', soja: 'Soja', arroz: 'Arroz',
@@ -352,13 +356,14 @@
     document.querySelectorAll('.tela').forEach(function (s) { s.classList.add('oculto'); });
     $('#tela-' + tela).classList.remove('oculto');
     document.querySelectorAll('.pestanas button').forEach(function (b) {
-      var grupo = { visita: 'nueva', nuevo: 'nueva', gasto: 'nueva', gastos: 'visitas', costos: 'visitas', detalle: 'visitas', detalleGasto: 'visitas', ficha: 'potreiros' }[tela];
+      var grupo = { visita: 'nueva', nuevo: 'nueva', gasto: 'nueva', gastos: 'visitas', costos: 'visitas', detalle: 'visitas', detalleGasto: 'visitas', ficha: 'potreiros', plan: 'potreiros' }[tela];
       b.classList.toggle('activa', b.dataset.tela === tela || b.dataset.tela === grupo);
     });
     telaActual = tela;
     if (tela === 'mapa') encuadrar();
     if (tela === 'potreiros') vistaPotreros();
     if (tela === 'ficha') vistaFicha(arg);
+    if (tela === 'plan') vistaPlan(arg);
     if (tela === 'visita') vistaVisita(arg);
     if (tela === 'visitas') vistaVisitas(arg);
     if (tela === 'detalle') vistaDetalle(arg);
@@ -372,6 +377,7 @@
     if (mapa) pintarPoligonos();
     if (telaActual === 'potreiros') vistaPotreros();
     if (telaActual === 'ficha' && fichaActual) vistaFicha(fichaActual);
+    if (telaActual === 'plan') vistaPlan(fichaActual);
     if (telaActual === 'visitas') vistaVisitas();
     if (telaActual === 'config') vistaConfig();
     if (SJ.vistas[telaActual] && telaActual !== 'gasto' && telaActual !== 'asistente') SJ.vistas[telaActual]();
@@ -574,7 +580,7 @@
     todasLasVisitas().forEach(function (x) {
       if (x.v.potreiro_id !== p.id || !x.v.fecha) return;
       var d = new Date(String(x.v.fecha).slice(0, 10) + 'T12:00'); if (isNaN(d)) return;
-      var per = periodoDe(d); vis[per] = (vis[per] || 0) + 1;
+      var per = periodoDe(d); (vis[per] = vis[per] || []).push(d);
     });
     function act(per) { return per === u.per ? 'act' : ''; }
     var h = '<button class="btn" type="button" data-nueva="' + p.id + '">＋ ' + esc(T('nuevaVisita')) + '</button>';
@@ -595,13 +601,40 @@
     h += filaDato(T('costoF'), function (per) { var c = costos[per]; return c ? '<b>' + SJ.dinero(c.usd) + '</b>' : '—'; });
     h += filaDato(T('costoHaF'), function (per) { var c = costos[per]; return c ? SJ.dinero(c.usd / p.ha) : '—'; });
     h += filaDato(SJ.T('gastos'), function (per) { return costos[per] ? costos[per].n : '—'; });
-    h += filaDato(T('historial'), function (per) { return vis[per] || '—'; });
+    h += filaDato(T('visitasF'), function (per) {
+      var l = (vis[per] || []).sort(function (x, y) { return y - x; });
+      if (!l.length) return '—';
+      var f = l.slice(0, 3).map(function (d) { return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }).join(' · ');
+      return '<button type="button" class="link" data-cap="visitas">' + f + (l.length > 3 ? ' +' + (l.length - 3) : '') + '</button>';
+    });
     h += '</tbody></table></div>';
+    return h + '<button class="btn sec" type="button" data-plan="' + p.id + '">📋 ' + esc(T('verPlan')) + '</button>';
+  }
+  var planAbierto = 0;
+  function vistaPlan(id) {
+    planAbierto = Date.now();
+    var mesHoy = new Date().getMonth() + 1;
     var nm = cfg.idioma === 'pt' ? ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
       : ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    h += '<h3>' + esc(T('planMensual')) + '</h3><div class="meses">';
-    for (var m = 1; m <= 12; m++) h += '<div class="' + (m === mesHoy ? 'actual' : '') + '"><b>' + nm[m - 1] + '</b>' + esc(p.mensal[m] || '') + '</div>';
-    return h + '</div>';
+    var filas = datos.potreiros.slice().sort(function (a, b) {
+      return (b.id === id) - (a.id === id) || a.poligono - b.poligono || a.nome.localeCompare(b.nome);   // el potrero elegido, primero
+    });
+    var h = (id ? '<button type="button" class="volver" data-ficha="' + id + '">‹ ' + esc(T('volverFicha')) + '</button>' : '') +
+      '<h2>' + esc(T('planMensual')) + '</h2><div class="mut nota">' + esc(T('planNota')) + '</div>';
+    h += '<div class="tabla-rot plan-rot"><table><thead><tr><th class="fija">' + esc(T('potrero')) + '</th>';
+    for (var m = 1; m <= 12; m++) h += '<th class="' + (m === mesHoy ? 'act' : '') + '">' + nm[m - 1] + '</th>';
+    h += '</tr></thead><tbody>';
+    filas.forEach(function (p) {
+      h += '<tr data-ficha="' + p.id + '" class="' + (p.id === id ? 'elegido' : '') + '" id="plan-' + p.id + '"><th class="fija"><span class="abrir">' +
+        p.poligono + '. ' + esc(p.nome) + ' ›</span><small>' + p.ha + ' ha</small></th>';
+      for (var m = 1; m <= 12; m++) {
+        var txt = p.mensal[m] || '', t = txt ? clasificar(txt) : '';
+        h += '<td class="' + (m === mesHoy ? 'act' : '') + (txt ? '' : ' vacia') + '"' + (t && t !== 'outro' ? ' style="background:' + colorTipo(t) + '"' : '') + '>' + esc(txt) + '</td>';
+      }
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    $('#tela-plan').innerHTML = h;
   }
   function listaVisitas(filtro) {
     var l = todasLasVisitas().filter(function (x) { return !filtro || filtro(x.v); });
@@ -866,10 +899,11 @@
       if (d.tela === 'nueva') ir(borrador ? 'visita' : 'nuevo');
       else ir(d.tela);
     } else if (d.nuevaVisita) ir('visita', { nueva: true });
-    else if (d.ficha) ir('ficha', d.ficha);
+    else if (d.ficha) { if (telaActual === 'plan' && Date.now() - planAbierto < 600) return; ir('ficha', d.ficha); }
     else if (d.pot) { mapa.closePopup(); ir('ficha', d.pot); }
     else if (d.nueva) ir('visita', borrador && borrador.potreiro_id === d.nueva ? null : { nueva: true, potrero: d.nueva });
     else if (d.detalle) ir('detalle', d.detalle);
+    else if (d.plan) ir('plan', d.plan);
     else if (d.cap) { fichaCap = d.cap; vistaFicha(fichaActual); }
     else if (d.filtro) { filtroPot = d.filtro; vistaPotreros(); }
     else if (d.modo) { modoPot = d.modo; vistaPotreros(); }
