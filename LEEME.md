@@ -15,7 +15,7 @@ El proyecto (contexto, decisiones, fuentes) está en
 | `reglas.js` | Sugerencias de manejo por cultivo y mes. **Borrador a validar.** Se edita a mano |
 | `sw.js`, `manifest.webmanifest`, `icono-*.png` | Para instalarla y que abra sin señal |
 | `vendor/leaflet/` | Librería del mapa (1.9.4), copiada para no depender de internet |
-| `servidor/Codigo.gs` | El servidor: Apps Script en el Drive de rastessiano@pastos.com.uy |
+| `servidor/Codigo.gs` | El servidor: Apps Script en el Drive de rastessiano@gmail.com |
 | `datos/campo-sao-jose.json` | Potreros, rotación, plan mensual e imagen. **No se publica**: va al Drive con `subir_datos.py` |
 
 Los datos se regeneran con
@@ -32,7 +32,7 @@ Los datos se regeneran con
 
 ## Puesta en marcha (una sola vez)
 
-1. En script.google.com (cuenta rastessiano@pastos.com.uy) → Proyecto nuevo → pegar
+1. En script.google.com (cuenta rastessiano@gmail.com) → Proyecto nuevo → pegar
    `servidor/Codigo.gs`.
 2. Ejecutar la función `configurar` (▶) y aceptar permisos. En el registro aparece la
    **clave** y el enlace a la planilla.

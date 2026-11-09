@@ -1,7 +1,7 @@
 /**
  * Servidor de la app de visitas de campo — Estância São José (Aceguá).
  *
- * Vive como Apps Script en el Google Drive de rastessiano@pastos.com.uy.
+ * Vive como Apps Script en el Google Drive de rastessiano@gmail.com.
  * - Guarda cada visita como una fila de la planilla «Visitas Estância São José».
  * - Guarda las fotos en la carpeta «Fotos visitas Estância São José».
  * - Devuelve los datos del campo (archivo «campo-sao-jose.json» en el Drive).
