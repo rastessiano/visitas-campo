@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v11';
+  var VERSION = '2026-11-09 v12';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -398,7 +398,7 @@
       var grupo = { visita: 'nueva', nuevo: 'nueva', gasto: 'nueva', gastos: 'visitas', costos: 'visitas', detalle: 'visitas', detalleGasto: 'visitas', ficha: 'potreiros', plan: 'potreiros' }[tela];
       b.classList.toggle('activa', b.dataset.tela === tela || b.dataset.tela === grupo);
     });
-    telaActual = tela;
+    telaActual = tela; argActual = arg;
     if (tela === 'mapa') encuadrar();
     if (tela === 'potreiros') vistaPotreros();
     if (tela === 'ficha') vistaFicha(arg);
@@ -425,7 +425,22 @@
     document.querySelectorAll('[data-t]').forEach(function (e) { e.textContent = T(e.dataset.t); });
     $('#sub').textContent = T('sub');
     document.documentElement.lang = cfg.idioma === 'pt' ? 'pt-BR' : 'es';
+    document.querySelectorAll('#btn-idioma span').forEach(function (s) { s.classList.toggle('act', s.dataset.l === cfg.idioma); });
     pill();
+  }
+  // Botón ES | PT de la barra: cambia el idioma de toda la app y vuelve a dibujar la pantalla actual.
+  var argActual = null;
+  function cambiarIdioma() {
+    cfg.idioma = cfg.idioma === 'pt' ? 'es' : 'pt';
+    kvSet('cfg', cfg);
+    textos();
+    if (mapa) { pintarPoligonos(); leyenda(); lineaTiempo(); cartelAqui(); }
+    var t = telaActual, s = $('#tela-' + t), y = s ? s.scrollTop : 0;
+    if (t !== 'mapa') {
+      // El formulario abierto se redibuja con lo que ya tenía cargado (no se pierde nada).
+      ir(t, t === 'visita' || t === 'gasto' ? null : argActual);
+      if (s) s.scrollTop = y;
+    }
   }
 
   // ---------------------------------------------------------------- mapa
@@ -1266,6 +1281,7 @@
     else if (d.compartir) compartirVisita(d.compartir);
   });
   $('#btn-sync').addEventListener('click', function () { sincronizar(true); });
+  $('#btn-idioma').addEventListener('click', cambiarIdioma);
   document.addEventListener('input', function (e) {
     var k = e.target.dataset && e.target.dataset.k;
     if (!k || !borrador) return;

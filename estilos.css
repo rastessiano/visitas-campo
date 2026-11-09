@@ -243,3 +243,6 @@ button.opcion b{display:block;font-size:17px;color:var(--azul);margin-bottom:4px
 .fotos-det a.cargando{animation:latido 1.2s ease-in-out infinite}
 @keyframes latido{50%{opacity:.5}}
 .pista-fotos{font-size:12px;margin:4px 0 10px}
+.pill.idioma{display:inline-flex;gap:2px;padding:4px;font-size:12px;font-weight:700}
+.pill.idioma span{padding:4px 7px;border-radius:999px;opacity:.6}
+.pill.idioma span.act{background:#fff;color:var(--azul);opacity:1}
