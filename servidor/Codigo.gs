@@ -446,7 +446,8 @@ const INSTRUCCIONES_ASISTENTE =
   'registradas y los gastos cargados. Si el dato no está, decilo y sugerí qué habría que registrar. No inventes cifras.\n' +
   'Al sumar gastos, usá total_usd y total_brl tal como vienen; si a un gasto le falta tipo de cambio, avisalo. ' +
   'Para costo por hectárea, dividí por las hectáreas del potrero o de los potreros del gasto.\n' +
-  'Respondé en el idioma de la pregunta (español o portugués), corto y claro, pensado para leer en el celular: ' +
+  'Respondé SIEMPRE en el idioma que indica «IDIOMA DE LA RESPUESTA» (el que eligió el usuario en la app), ' +
+  'aunque la pregunta o el historial estén en otro idioma. Corto y claro, pensado para leer en el celular: ' +
   'primero la respuesta, después el detalle en pocas líneas o una lista corta. Sin tablas anchas.';
 
 function consultar_(cuerpo) {
@@ -469,7 +470,9 @@ function consultar_(cuerpo) {
   });
   while (mensajes.length && mensajes[0].role !== 'user') mensajes.shift();
   if (mensajes.length && mensajes[mensajes.length - 1].role === 'user') mensajes.pop();
-  mensajes.push({ role: 'user', content: datosVivos + '\n\nPREGUNTA: ' + pregunta });
+  // El idioma va en el mensaje (no en las instrucciones) para no romper la caché de las instrucciones.
+  const idioma = cuerpo.idioma === 'pt' ? 'portugués de Brasil' : 'español rioplatense';
+  mensajes.push({ role: 'user', content: datosVivos + '\n\nIDIOMA DE LA RESPUESTA: ' + idioma + '\n\nPREGUNTA: ' + pregunta });
 
   const pedido = {
     model: MODELO_ASISTENTE,
