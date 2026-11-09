@@ -9,6 +9,7 @@
  * Primera vez: ejecutar la función `configurar` desde el editor (botón ▶) y copiar la
  * clave que aparece en el registro. Después: Implementar → Nueva implementación →
  * Aplicación web, ejecutar como «Yo», acceso «Cualquier usuario».
+ * Los datos del campo se suben por POST (accion «datos») desde la compu de Roberto.
  */
 
 const COLUMNAS = [
@@ -47,7 +48,18 @@ function configurar() {
   if (datos) datos.moveTo(carpeta);
   Logger.log('CLAVE de la app: ' + props.getProperty('CLAVE'));
   Logger.log('Planilla: ' + SpreadsheetApp.openById(props.getProperty('PLANILLA')).getUrl());
-  Logger.log('Datos del campo: ' + (datos ? 'encontrados' : 'FALTA subir campo-sao-jose.json al Drive'));
+  Logger.log('Datos del campo: ' + (datos ? 'encontrados' : 'todavía no (se suben desde la compu)'));
+}
+
+/** Guarda (o reemplaza) los datos del campo en la carpeta de la app. */
+function guardarDatos_(datos) {
+  const carpeta = DriveApp.getFolderById(
+    PropertiesService.getScriptProperties().getProperty('CARPETA'));
+  const texto = JSON.stringify(datos);
+  const f = buscarDatos_();
+  if (f) f.setContent(texto);
+  else carpeta.createFile('campo-sao-jose.json', texto, 'application/json');
+  return { ok: true, potreiros: datos.potreiros.length, versao: datos.versao };
 }
 
 function buscarDatos_() {
@@ -82,6 +94,9 @@ function doPost(e) {
   try { cuerpo = JSON.parse(e.postData.contents); }
   catch (err) { return responder_({ ok: false, error: 'json' }); }
   if (!claveOk_(cuerpo.clave)) return responder_({ ok: false, error: 'clave' });
+  if (cuerpo.accion === 'datos' && cuerpo.datos && cuerpo.datos.potreiros) {
+    return responder_(guardarDatos_(cuerpo.datos));
+  }
   if (cuerpo.accion !== 'visita' || !cuerpo.visita || !cuerpo.visita.id) {
     return responder_({ ok: false, error: 'pedido' });
   }

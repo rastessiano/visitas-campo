@@ -16,7 +16,7 @@ El proyecto (contexto, decisiones, fuentes) está en
 | `sw.js`, `manifest.webmanifest`, `icono-*.png` | Para instalarla y que abra sin señal |
 | `vendor/leaflet/` | Librería del mapa (1.9.4), copiada para no depender de internet |
 | `servidor/Codigo.gs` | El servidor: Apps Script en el Drive de rastessiano@pastos.com.uy |
-| `datos/campo-sao-jose.json` | Potreros, rotación, plan mensual e imagen. **No se publica**: va al Drive |
+| `datos/campo-sao-jose.json` | Potreros, rotación, plan mensual e imagen. **No se publica**: va al Drive con `subir_datos.py` |
 
 Los datos se regeneran con
 `python -I "Proyectos\Pastos\Estancia San José Aceguá\2 Borradores\armar_datos_campo.py" <salida.json>`.
@@ -32,17 +32,22 @@ Los datos se regeneran con
 
 ## Puesta en marcha (una sola vez)
 
-1. Subir `datos/campo-sao-jose.json` al Drive de rastessiano@pastos.com.uy.
-2. En script.google.com → Proyecto nuevo → pegar `servidor/Codigo.gs`.
-3. Ejecutar la función `configurar` (▶) y aceptar permisos. En el registro aparece la
+1. En script.google.com (cuenta rastessiano@pastos.com.uy) → Proyecto nuevo → pegar
+   `servidor/Codigo.gs`.
+2. Ejecutar la función `configurar` (▶) y aceptar permisos. En el registro aparece la
    **clave** y el enlace a la planilla.
-4. Implementar → Nueva implementación → Aplicación web. Ejecutar como: **Yo**. Quién tiene
+3. Implementar → Nueva implementación → Aplicación web. Ejecutar como: **Yo**. Quién tiene
    acceso: **Cualquier usuario**. Copiar la URL que termina en `/exec`.
+4. Subir los datos del campo desde la compu (también sirve para actualizarlos):
+   `python -I subir_datos.py <URL> <CLAVE>` dentro de esta carpeta.
 5. En cada celular: abrir la app, Ajustes → nombre, idioma, URL y clave → Guardar.
    Después «Agregar a pantalla de inicio».
 
 Si se cambia `Codigo.gs`, hay que hacer Implementar → Gestionar implementaciones → editar →
 Versión nueva, para que la URL siga siendo la misma.
+
+La app publicada: https://rastessiano.github.io/visitas-campo/ (repo público
+`rastessiano/visitas-campo`, solo código; se publica copiando estos archivos menos `datos/`).
 
 ## Probar en la compu
 
