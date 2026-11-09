@@ -388,6 +388,7 @@
   };
 
   // ------------------------------------------------------------ eventos
+  SJ.gastos = function () { return todosLosGastos().map(function (x) { return x.g; }); };
   SJ.vistas.gasto = vistaGasto;
   SJ.vistas.gastos = function () { recargar().then(vistaGastos); };
   SJ.vistas.costos = function () { recargar().then(vistaCostos); };

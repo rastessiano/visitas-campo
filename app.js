@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v5';
+  var VERSION = '2026-11-09 v6';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -867,7 +867,7 @@
   SJ.esc = esc; SJ.$ = $; SJ.aviso = aviso; SJ.uid = uid; SJ.ahoraLocal = ahoraLocal;
   SJ.kvGet = kvGet; SJ.kvSet = kvSet; SJ.tx = tx; SJ.fetchT = fetchT; SJ.blobB64 = blobB64; SJ.achicar = achicar;
   SJ.cfg = function () { return cfg; }; SJ.datos = function () { return datos; };
-  SJ.potrero = potrero; SJ.periodoDe = periodoDe; SJ.usoAhora = usoAhora; SJ.clasificar = clasificar;
+  SJ.potrero = potrero; SJ.periodoDe = periodoDe; SJ.invernoSiguiente = invernoSiguiente; SJ.usoAhora = usoAhora; SJ.clasificar = clasificar;
   SJ.categoria = categoria; SJ.colorTipo = colorTipo; SJ.nombreTipo = nombreTipo; SJ.etiquetaPer = etiquetaPer;
   SJ.ir = ir; SJ.pill = pill; SJ.sincronizar = sincronizar; SJ.selectorRegistros = selectorRegistros;
   SJ.idioma = function () { return cfg.idioma; };

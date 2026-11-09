@@ -13,7 +13,8 @@ El proyecto (contexto, decisiones, fuentes) está en
 |---|---|
 | `index.html`, `estilos.css`, `app.js` | La app: mapa, potreros, rotación, visitas, ajustes |
 | `gastos.js` | Gastos y tareas con su costo (USD y R$), productos, costos por potrero/zafra, CSV |
-| `asistente.js` | Asistente de consultas (pregunta al servidor, que consulta a Claude) |
+| `asistente.js` | Asistente: pregunta al servidor (Claude); voz (dictar y leer); preguntas en espera sin señal |
+| `asistente-local.js` | Respuestas sin internet calculadas en el teléfono (hectáreas, potrero, gastos, visitas) |
 | `inicio.js` | Arranca la app después de cargar los módulos |
 | `reglas.js` | Sugerencias de manejo por cultivo y mes. **Borrador; lo valida Roberto.** Se edita a mano |
 | `sw.js`, `manifest.webmanifest`, `icono-*.png` | Para instalarla y que abra sin señal |

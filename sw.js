@@ -1,6 +1,6 @@
 /* Service worker: guarda la app en el teléfono para que abra sin señal. */
-var VERSION = 'visitas-sj-2026-11-09-v5';
-var APP = ['./', 'index.html', 'estilos.css', 'app.js', 'reglas.js', 'gastos.js', 'asistente.js', 'inicio.js', 'manifest.webmanifest',
+var VERSION = 'visitas-sj-2026-11-09-v6';
+var APP = ['./', 'index.html', 'estilos.css', 'app.js', 'reglas.js', 'gastos.js', 'asistente-local.js', 'asistente.js', 'inicio.js', 'manifest.webmanifest',
   'icono-192.png', 'icono-512.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css',
   'vendor/leaflet/images/layers.png', 'vendor/leaflet/images/marker-icon.png', 'vendor/leaflet/images/marker-shadow.png'];
 var TESELAS = 'teselas-sj';
