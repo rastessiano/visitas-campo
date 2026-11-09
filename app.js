@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v12';
+  var VERSION = '2026-11-09 v13';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -61,6 +61,7 @@
       compartir: '📤 Enviar por mail o WhatsApp', armandoPdf: 'Armando el PDF…', pdfBajado: 'Este equipo no deja compartir archivos: el PDF quedó en Descargas.',
       visitaCampo: 'Visita de campo', fotosDrive: 'Fotos en el Drive',
       tocarFoto: 'Tocá una foto para abrirla en el Drive y descargarla.', fotosDescargar: 'Fotos para descargar (Drive)',
+      escalasRef: 'Escalas de referencia', valor: 'Valor', escalasNota: 'En la app se ven las palabras; en la planilla queda el número. Ojo: estado general empieza en 1 y malezas, plagas y enfermedades en 0 (1 = bajo, ya hay presencia).',
       verFoto: 'Ver foto', respaldo: 'Exportar respaldo (JSON)', nPend: 'visitas sin enviar',
       sinRemanente: '', satelite: 'Satélite (con internet)', imagen: 'Imagen de los potreros',
       semente_azevem: 'Semilla raigrás', semente_festuca: 'Semilla festuca', semente_leguminosa: 'Semilla leguminosa',
@@ -115,6 +116,7 @@
       compartir: '📤 Enviar por e-mail ou WhatsApp', armandoPdf: 'Montando o PDF…', pdfBajado: 'Este aparelho não permite compartilhar arquivos: o PDF ficou em Downloads.',
       visitaCampo: 'Visita de campo', fotosDrive: 'Fotos no Drive',
       tocarFoto: 'Toque uma foto para abrir no Drive e baixar.', fotosDescargar: 'Fotos para baixar (Drive)',
+      escalasRef: 'Escalas de referência', valor: 'Valor', escalasNota: 'No app aparecem as palavras; na planilha fica o número. Atenção: estado geral começa em 1 e invasoras, pragas e doenças em 0 (1 = baixo, já há presença).',
       verFoto: 'Ver foto', respaldo: 'Exportar backup (JSON)', nPend: 'visitas não enviadas',
       sinRemanente: '', satelite: 'Satélite (com internet)', imagen: 'Imagem dos potreiros',
       semente_azevem: 'Semente azevém', semente_festuca: 'Semente festuca', semente_leguminosa: 'Semente leguminosa',
@@ -764,7 +766,20 @@
     var n = pendientes().length;
     var h = selectorRegistros('visitas');
     if (n) h += '<button class="btn sec" type="button" data-sync="1">⬆ ' + esc(T('sincronizar')) + ' (' + n + ')</button>';
-    $('#tela-visitas').innerHTML = h + listaVisitas();
+    $('#tela-visitas').innerHTML = h + escalasHtml() + listaVisitas();
+  }
+  var escalasAbiertas = false;
+  document.addEventListener('toggle', function (e) { if (e.target.classList && e.target.classList.contains('escalas')) escalasAbiertas = e.target.open; }, true);
+  // Cuadros de referencia de las escalas (en la planilla las calificaciones quedan como número).
+  function escalasHtml() {
+    function tabla(tit, l, desde) {
+      return '<table class="escala"><thead><tr><th>' + esc(T('valor')) + '</th><th>' + esc(tit) + '</th></tr></thead><tbody>' +
+        l.map(function (x, i) { return '<tr><td>' + (i + desde) + '</td><td>' + esc(x) + '</td></tr>'; }).join('') + '</tbody></table>';
+    }
+    return '<details class="escalas"' + (escalasAbiertas ? ' open' : '') + '><summary>📏 ' + esc(T('escalasRef')) + '</summary>' +
+      '<div class="escalas-cuerpo">' + tabla(T('estado') + ' (1–5)', T('estados'), 1) +
+      tabla(T('malezas') + ' / ' + T('plagas') + ' / ' + T('enfermedades') + ' (0–3)', T('niveles'), 0) +
+      '</div><div class="mut nota">' + esc(T('escalasNota')) + '</div></details>';
   }
 
   function vistaDetalle(id) {
@@ -905,7 +920,8 @@
       }).join('') + '</div></div>';
     h += '<div class="grupo"><h3>' + esc(T('malezas')) + '</h3>' + niveles('malezas_nivel') + '<input type="text" data-k="malezas" placeholder="' + esc(T('cuales')) + '" value="' + esc(b.malezas) + '" style="margin-top:6px">' +
       '<h3>' + esc(T('plagas')) + '</h3>' + niveles('plagas_nivel') + '<input type="text" data-k="plagas" placeholder="' + esc(T('cuales')) + '" value="' + esc(b.plagas) + '" style="margin-top:6px">' +
-      '<h3>' + esc(T('enfermedades')) + '</h3>' + niveles('enfermedades_nivel') + '<input type="text" data-k="enfermedades" placeholder="' + esc(T('cuales')) + '" value="' + esc(b.enfermedades) + '" style="margin-top:6px"></div>';
+      '<h3>' + esc(T('enfermedades')) + '</h3>' + niveles('enfermedades_nivel') + '<input type="text" data-k="enfermedades" placeholder="' + esc(T('cuales')) + '" value="' + esc(b.enfermedades) + '" style="margin-top:6px">' +
+      escalasHtml() + '</div>';
     h += '<div class="grupo"><h3>' + esc(T('pastoreo')) + '</h3><div class="dos"><div>' + txt('categoria_animal', T('categoria')) + '</div><div>' +
       txt('cabezas', T('cabezas'), 'number', num) + '</div></div><div class="dos"><div>' + txt('altura_entrada_cm', T('alturaEntrada'), 'number', num) + '</div><div>' +
       txt('remanente_cm', T('remanente'), 'number', num) + '</div></div>' + txt('forraje_kgms_ha', T('forraje'), 'number', num) + '</div>';
