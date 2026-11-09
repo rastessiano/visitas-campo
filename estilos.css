@@ -104,6 +104,9 @@ textarea{min-height:76px;resize:vertical}
 .fotos img{width:100%;height:100%;object-fit:cover}
 .fotos button{position:absolute;top:4px;right:4px;border:0;border-radius:50%;width:28px;height:28px;
   background:rgba(0,0,0,.6);color:#fff}
+.previas{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
+.previas span{display:inline-flex;align-items:center;gap:6px;background:#eef2f8;border-radius:16px;padding:4px 6px 4px 12px}
+.previas button{border:0;border-radius:50%;width:26px;height:26px;background:var(--rojo);color:#fff;font-size:16px;line-height:1}
 .gps{font-size:13px;color:var(--gris)}
 .estado-sync{font-size:12px;font-weight:700}
 .estado-sync.pend{color:#9a6a0a}

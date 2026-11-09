@@ -186,6 +186,8 @@ function doPost(e) {
   try {
     if (cuerpo.accion === 'datos' && cuerpo.datos && cuerpo.datos.potreiros) return responder_(guardarDatos_(cuerpo.datos));
     if (cuerpo.accion === 'visita' && cuerpo.visita && cuerpo.visita.id) return responder_(guardarVisita_(cuerpo.visita));
+    if (cuerpo.accion === 'visitaEditar' && cuerpo.visita && cuerpo.visita.id) return responder_(editarVisita_(cuerpo.visita));
+    if (cuerpo.accion === 'visitaBorrar' && cuerpo.id) return responder_(borrarVisita_(cuerpo.id, cuerpo.usuario));
     if (cuerpo.accion === 'gasto' && cuerpo.gasto && cuerpo.gasto.id) return responder_(guardarGasto_(cuerpo.gasto));
     if (cuerpo.accion === 'producto' && cuerpo.producto && cuerpo.producto.id) return responder_(guardarProducto_(cuerpo.producto));
     return responder_({ ok: false, error: 'pedido' });
@@ -226,6 +228,45 @@ function guardarVisita_(v) {
   });
   hoja.appendRow(fila);
   return { ok: true, id: v.id, fotos: enlaces };
+}
+
+function filaDeId_(hoja, id) {
+  const c = hoja.getRange('A:A').createTextFinder(id).matchEntireCell(true).findNext();
+  return c ? c.getRow() : 0;
+}
+
+/** Reescribe una visita ya enviada. Conserva las fotos que siguen (fotosPrevias) y suma las nuevas. */
+function editarVisita_(v) {
+  const hoja = hoja_();
+  const n = filaDeId_(hoja, v.id);
+  if (!n) return guardarVisita_(v);
+  const antes = hoja.getRange(n, 1, 1, COLUMNAS.length).getValues()[0];
+  const nuevas = (v.fotos || []).map(function (f, i) {
+    return guardarFoto_(f.base64, [String(v.fecha).slice(0, 10), v.potreiro, v.usuario, 'edit', i + 1].join(' - ') + '.jpg');
+  });
+  const enlaces = (v.fotosPrevias || []).concat(nuevas);
+  const fila = COLUMNAS.map(function (c, i) {
+    if (c === 'fotos') return enlaces.join(' ');
+    if (c === 'recibido') return antes[i];
+    if (c === 'fecha') return "'" + String(v.fecha || '').replace('T', ' ').slice(0, 16);
+    const x = v[c];
+    return x === undefined || x === null ? '' : x;
+  });
+  hoja.getRange(n, 1, 1, COLUMNAS.length).setValues([fila]);
+  return { ok: true, id: v.id, fotos: enlaces, editada: true };
+}
+
+/** Saca la visita de la hoja «Visitas» y la guarda en «Visitas borradas» (no se pierde nada). */
+function borrarVisita_(id, usuario) {
+  const hoja = hoja_();
+  const n = filaDeId_(hoja, id);
+  if (!n) return { ok: true, id: id, noEstaba: true };
+  const papelera = hojaConColumnas_('Visitas borradas', COLUMNAS.concat(['borrado', 'borrado_por']));
+  const fila = hoja.getRange(n, 1, 1, COLUMNAS.length).getValues()[0];
+  fila[1] = "'" + fila[1];
+  papelera.appendRow(fila.concat([new Date(), usuario || '']));
+  hoja.deleteRow(n);
+  return { ok: true, id: id, borrada: true };
 }
 
 function leerVisitas_() {
