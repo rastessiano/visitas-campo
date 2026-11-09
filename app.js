@@ -22,7 +22,7 @@
       estasEn: 'Estás en', fueraCampo: 'Fuera de los potreros', buscandoGps: 'Buscando GPS…',
       nuevaAqui: 'Visita aquí', ha: 'ha', usoAhora: 'Uso ahora', planMes: 'Plan del mes',
       rotacion: 'Rotación', planMensual: 'Plan mensual (planilla)', historial: 'Visitas',
-      campana: 'Campaña', ahora: 'ahora', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
+      campana: 'Campaña', ahora: 'ahora', cultivoF: 'Cultivo', costoF: 'Costo', costoHaF: 'Costo/ha', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
       sinVisitas: 'Todavía no hay visitas.', nuevaVisita: 'Nueva visita', verMapa: 'Ver en el mapa',
       todos: 'Todos', semente: 'Semilla', pastagem: 'Pastura', soja: 'Soja', arroz: 'Arroz',
       nativo: 'Campo nativo', resteva: 'Rastrojo', outro: 'Otro', colheita: 'en cosecha',
@@ -66,7 +66,7 @@
       estasEn: 'Você está em', fueraCampo: 'Fora dos potreiros', buscandoGps: 'Buscando GPS…',
       nuevaAqui: 'Visita aqui', ha: 'ha', usoAhora: 'Uso agora', planMes: 'Plano do mês',
       rotacion: 'Rotação', planMensual: 'Plano mensal (planilha)', historial: 'Visitas',
-      campana: 'Safra', ahora: 'agora', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
+      campana: 'Safra', ahora: 'agora', cultivoF: 'Cultura', costoF: 'Custo', costoHaF: 'Custo/ha', gastoN: 'gasto', gastosN: 'gastos', visitaN: 'visita', visitasN: 'visitas',
       sinVisitas: 'Ainda não há visitas.', nuevaVisita: 'Nova visita', verMapa: 'Ver no mapa',
       todos: 'Todos', semente: 'Semente', pastagem: 'Pastagem', soja: 'Soja', arroz: 'Arroz',
       nativo: 'Campo nativo', resteva: 'Resteva', outro: 'Outro', colheita: 'em colheita',
@@ -526,7 +526,7 @@
       pers.map(function (p) { return '<th class="' + (p === perAhora ? 'act' : '') + '">' + esc(etiquetaPer(p)) + '</th>'; }).join('') +
       '</tr></thead><tbody>';
     filas.forEach(function (p) {
-      h += '<tr data-ficha="' + p.id + '"><th class="fija">' + p.poligono + '. ' + esc(p.nome) + '<small>' + p.ha + ' ha</small></th>';
+      h += '<tr data-ficha="' + p.id + '"><th class="fija"><span class="abrir">' + p.poligono + '. ' + esc(p.nome) + ' ›</span><small>' + p.ha + ' ha</small></th>';
       pers.forEach(function (per) {
         var txt = p.rotacao[per] || '', t = clasificar(txt);
         tot[per][t] = (tot[per][t] || 0) + p.ha;
@@ -549,16 +549,6 @@
   }
 
   var fichaCap = 'rotacion';
-  // Campañas: el verano (p. ej. 2025-26) y el invierno que le sigue (inv 26).
-  function campanas() {
-    var l = [];
-    datos.periodos.forEach(function (per) {
-      if (/^inv/.test(per) && l.length && !l[l.length - 1].inv) l[l.length - 1].inv = per;
-      else if (/^inv/.test(per)) l.push({ ver: null, inv: per });
-      else l.push({ ver: per, inv: null });
-    });
-    return l;
-  }
   function vistaFicha(id) {
     if (id !== fichaActual) fichaCap = 'rotacion';
     fichaActual = id;
@@ -580,31 +570,33 @@
     $('#tela-ficha').innerHTML = h;
   }
   function capRotacion(p, u, mesHoy) {
-    var costos = SJ.costoPorPeriodo ? SJ.costoPorPeriodo(p) : {}, vis = {};
+    var costos = SJ.costoPorPeriodo ? SJ.costoPorPeriodo(p) : {}, vis = {}, pers = datos.periodos;
     todasLasVisitas().forEach(function (x) {
       if (x.v.potreiro_id !== p.id || !x.v.fecha) return;
       var d = new Date(String(x.v.fecha).slice(0, 10) + 'T12:00'); if (isNaN(d)) return;
       var per = periodoDe(d); vis[per] = (vis[per] || 0) + 1;
     });
-    function fila(per, icono) {
-      if (!per) return '';
-      var uso = p.rotacao[per] || '', tipo = clasificar(uso), c = costos[per];
-      var extra = [c ? c.n + ' ' + T(c.n === 1 ? 'gastoN' : 'gastosN') : '', vis[per] ? vis[per] + ' ' + T(vis[per] === 1 ? 'visitaN' : 'visitasN') : '']
-        .filter(Boolean).join(' · ');
-      return '<div class="camp-per' + (per === u.per ? ' actual' : '') + '"><i style="background:' + colorTipo(tipo) + '"></i><div class="crece">' +
-        '<div class="mut">' + icono + ' ' + esc(etiquetaPer(per)) + (per === u.per ? ' · <b class="ahora">' + esc(T('ahora')) + '</b>' : '') + '</div>' +
-        '<b>' + esc(uso || '—') + '</b>' + (uso ? ' <span class="chip" style="background:' + colorTipo(tipo) + '">' + esc(nombreTipo(tipo)) + '</span>' : '') +
-        (extra ? '<div class="mut chico">' + esc(extra) + '</div>' : '') + '</div>' +
-        (c ? '<div class="monto"><b>' + SJ.dinero(c.usd) + '</b><span class="mut">' + SJ.dinero(c.usd / p.ha) + '/ha</span></div>' : '') + '</div>';
-    }
+    function act(per) { return per === u.per ? 'act' : ''; }
     var h = '<button class="btn" type="button" data-nueva="' + p.id + '">＋ ' + esc(T('nuevaVisita')) + '</button>';
-    h += campanas().map(function (c) {
-      var tot = (c.ver && costos[c.ver] ? costos[c.ver].usd : 0) + (c.inv && costos[c.inv] ? costos[c.inv].usd : 0);
-      var nombre = c.ver ? c.ver.replace(/^20/, '') : c.inv.replace('inv ', '');
-      return '<div class="tarjeta campana"><div class="camp-tit"><b>' + esc(T('campana')) + ' ' + esc(nombre) + '</b>' +
-        (tot ? '<span>' + SJ.dinero(tot) + ' · ' + SJ.dinero(tot / p.ha) + '/ha</span>' : '') + '</div>' +
-        fila(c.ver, '☀️') + fila(c.inv, '❄️') + '</div>';
-    }).join('');
+    h += '<div class="leyenda-rot">' + TIPOS.map(function (t) {
+      return '<span><i style="background:' + colorTipo(t) + '"></i>' + esc(nombreTipo(t)) + '</span>';
+    }).join('') + '</div>';
+    h += '<div class="tabla-rot ficha-rot"><table><thead><tr><th class="fija"></th>' +
+      pers.map(function (per) { return '<th class="' + act(per) + '">' + esc(etiquetaPer(per)) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    h += '<tr class="cult"><th class="fija">' + esc(T('cultivoF')) + '</th>' + pers.map(function (per) {
+      var txt = p.rotacao[per] || '', t = clasificar(txt);
+      return '<td class="' + act(per) + '" style="background:' + colorTipo(t) + '">' + esc(txt || '—') + '</td>';
+    }).join('') + '</tr>';
+    function filaDato(et, fn) {
+      return '<tr class="dato"><th class="fija">' + esc(et) + '</th>' + pers.map(function (per) {
+        return '<td class="' + act(per) + '">' + fn(per) + '</td>';
+      }).join('') + '</tr>';
+    }
+    h += filaDato(T('costoF'), function (per) { var c = costos[per]; return c ? '<b>' + SJ.dinero(c.usd) + '</b>' : '—'; });
+    h += filaDato(T('costoHaF'), function (per) { var c = costos[per]; return c ? SJ.dinero(c.usd / p.ha) : '—'; });
+    h += filaDato(SJ.T('gastos'), function (per) { return costos[per] ? costos[per].n : '—'; });
+    h += filaDato(T('historial'), function (per) { return vis[per] || '—'; });
+    h += '</tbody></table></div>';
     var nm = cfg.idioma === 'pt' ? ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
       : ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     h += '<h3>' + esc(T('planMensual')) + '</h3><div class="meses">';

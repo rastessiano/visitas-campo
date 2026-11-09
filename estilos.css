@@ -199,3 +199,11 @@ button.opcion b{display:block;font-size:17px;color:var(--azul);margin-bottom:4px
 .parte{font-size:12px;margin:-6px 4px 10px}
 .nota{font-size:12px;margin:4px 2px 12px}
 .camp-per .crece{flex:1;min-width:0}
+.tabla-rot .fija .abrir{text-decoration:underline;text-decoration-color:rgba(11,61,145,.35);text-underline-offset:3px}
+.tabla-rot tbody tr[data-ficha]:hover .fija,.tabla-rot tbody tr[data-ficha]:active .fija{background:#eef3fb}
+.ficha-rot{margin-bottom:6px}
+.ficha-rot .fija{min-width:84px;font-size:12px}
+.ficha-rot tbody tr{cursor:default}
+.ficha-rot tbody tr.cult td{height:52px}
+.ficha-rot tbody tr.dato td{background:var(--fondo);font-size:12px;white-space:nowrap}
+.ficha-rot tbody tr.dato td.act{outline:none;background:#fff7e6}
