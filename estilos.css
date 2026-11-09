@@ -17,7 +17,7 @@ button,input,select,textarea{font:inherit;color:inherit}
   padding:env(safe-area-inset-top) 12px 0;background:var(--azul);color:#fff;display:flex;
   align-items:center;justify-content:space-between;z-index:1000}
 .titulo{display:flex;flex-direction:column;gap:4px;min-width:0}
-.titulo .logo{height:24px;width:auto;display:block}
+.titulo .logo{height:26px;width:auto;aspect-ratio:290/64;max-width:none;flex:none;align-self:flex-start;object-fit:contain;display:block}
 .titulo>span{font-size:12px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .titulo b{font-family:var(--display);font-weight:600}
 .pill{border:0;border-radius:999px;padding:8px 14px;background:rgba(255,255,255,.15);color:#fff;
