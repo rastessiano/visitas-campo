@@ -1,16 +1,17 @@
 /* Service worker: guarda la app en el teléfono para que abra sin señal. */
-var VERSION = 'visitas-sj-2026-11-09-v6';
+var VERSION = 'visitas-sj-2026-11-09-v7';
 var APP = ['./', 'index.html', 'estilos.css', 'app.js', 'reglas.js', 'gastos.js', 'asistente-local.js', 'asistente.js', 'inicio.js', 'manifest.webmanifest',
-  'icono-192.png', 'icono-512.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css',
+  'icono-192.png', 'icono-512.png', 'logo-barra.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css',
   'vendor/leaflet/images/layers.png', 'vendor/leaflet/images/marker-icon.png', 'vendor/leaflet/images/marker-shadow.png'];
 var TESELAS = 'teselas-sj';
+var FUENTES = 'fuentes-sj';
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(APP); }).then(function () { return self.skipWaiting(); }));
 });
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (ks) {
-    return Promise.all(ks.filter(function (k) { return k !== VERSION && k !== TESELAS; }).map(function (k) { return caches.delete(k); }));
+    return Promise.all(ks.filter(function (k) { return k !== VERSION && k !== TESELAS && k !== FUENTES; }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
 });
 self.addEventListener('fetch', function (e) {
@@ -23,6 +24,15 @@ self.addEventListener('fetch', function (e) {
     e.respondWith(caches.open(TESELAS).then(function (c) {
       return c.match(e.request).then(function (r) {
         return r || fetch(e.request).then(function (resp) { if (resp.ok) c.put(e.request, resp.clone()); return resp; });
+      });
+    }).catch(function () { return new Response('', { status: 504 }); }));
+    return;
+  }
+  // Tipografía de Pastos (Google Fonts): se guarda la primera vez, para tenerla sin señal.
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+    e.respondWith(caches.open(FUENTES).then(function (c) {
+      return c.match(e.request).then(function (r) {
+        return r || fetch(e.request).then(function (resp) { if (resp.ok || resp.type === 'opaque') c.put(e.request, resp.clone()); return resp; });
       });
     }).catch(function () { return new Response('', { status: 504 }); }));
     return;
