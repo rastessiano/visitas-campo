@@ -107,3 +107,27 @@ textarea{min-height:76px;resize:vertical}
 .aviso{position:fixed;left:12px;right:12px;bottom:calc(var(--nav) + 12px + env(safe-area-inset-bottom));
   background:#1c2430;color:#fff;padding:12px 14px;border-radius:12px;z-index:2000;font-size:14px}
 .vacio{text-align:center;color:var(--gris);padding:30px 10px}
+
+/* Tablero de rotación */
+.conm button{font-weight:600}
+.leyenda-rot{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;margin-bottom:8px}
+.leyenda-rot i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+.tabla-rot{overflow-x:auto;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.tabla-rot table{border-collapse:separate;border-spacing:2px;font-size:12px;min-width:100%}
+.tabla-rot th,.tabla-rot td{padding:6px 7px;text-align:left;vertical-align:middle}
+.tabla-rot thead th{font-size:12px;color:var(--gris);white-space:nowrap;background:#fff}
+.tabla-rot thead th.act{color:#9a6a0a}
+.tabla-rot tbody td{color:#1c2430;border-radius:5px;min-width:96px;max-width:150px;line-height:1.25}
+.tabla-rot tbody td.act{outline:3px solid #1c2430;outline-offset:-3px}
+.tabla-rot .fija{position:sticky;left:0;background:#fff;z-index:1;white-space:nowrap;font-weight:700;color:var(--azul);min-width:130px}
+.tabla-rot .fija small{display:block;font-weight:400;color:var(--gris)}
+.tabla-rot tbody tr{cursor:pointer}
+.tabla-rot tfoot td{font-size:12px;vertical-align:top}
+.barra-ha{display:flex;height:12px;border-radius:3px;overflow:hidden;margin-bottom:4px;background:#eef1f5}
+.barra-ha i{display:block;height:100%}
+.leyenda select{border:1px solid var(--linea);border-radius:6px;padding:4px 6px;font-size:13px;margin-bottom:4px;min-height:32px;background:#fff}
+
+/* Pantallas grandes: contenido centrado */
+@media (min-width:900px){
+  .tela:not(#tela-mapa)>*{max-width:1200px;margin-left:auto;margin-right:auto}
+}

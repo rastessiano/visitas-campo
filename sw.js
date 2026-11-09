@@ -1,5 +1,5 @@
 /* Service worker: guarda la app en el teléfono para que abra sin señal. */
-var VERSION = 'visitas-sj-2026-11-08-v1';
+var VERSION = 'visitas-sj-2026-11-09-v2';
 var APP = ['./', 'index.html', 'estilos.css', 'app.js', 'reglas.js', 'manifest.webmanifest',
   'icono-192.png', 'icono-512.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css',
   'vendor/leaflet/images/layers.png', 'vendor/leaflet/images/marker-icon.png', 'vendor/leaflet/images/marker-shadow.png'];

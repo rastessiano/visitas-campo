@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-08 v1';
+  var VERSION = '2026-11-09 v2';
   var USUARIOS = ['Roberto', 'Gonzalo', 'João Antonio', 'Técnico'];
 
   // ---------------------------------------------------------------- textos
@@ -45,7 +45,10 @@
       sinDatos: 'Faltan los datos del campo. Cargá servidor y clave y tocá «Bajar datos del campo».',
       borrar: 'Borrar esta visita', confirmarBorrar: '¿Borrar esta visita? Todavía no se envió.',
       verFoto: 'Ver foto', respaldo: 'Exportar respaldo (JSON)', nPend: 'visitas sin enviar',
-      sinRemanente: '', satelite: 'Satélite (con internet)', imagen: 'Imagen de los potreros'
+      sinRemanente: '', satelite: 'Satélite (con internet)', imagen: 'Imagen de los potreros',
+      semente_azevem: 'Semilla raigrás', semente_festuca: 'Semilla festuca', semente_leguminosa: 'Semilla leguminosa',
+      lista: 'Lista', tablero: 'Rotación', ahora: 'Ahora', verano: 'Ver.', invierno: 'Inv.',
+      haEstacion: 'Hectáreas por estación', haSemillaCorto: 'ha semilla', ver: 'Ver'
     },
     pt: {
       mapa: 'Mapa', potreiros: 'Potreiros', nueva: 'Visita', visitas: 'Visitas', config: 'Ajustes',
@@ -82,11 +85,18 @@
       sinDatos: 'Faltam os dados do campo. Coloque servidor e chave e toque «Baixar dados do campo».',
       borrar: 'Apagar esta visita', confirmarBorrar: 'Apagar esta visita? Ainda não foi enviada.',
       verFoto: 'Ver foto', respaldo: 'Exportar backup (JSON)', nPend: 'visitas não enviadas',
-      sinRemanente: '', satelite: 'Satélite (com internet)', imagen: 'Imagem dos potreiros'
+      sinRemanente: '', satelite: 'Satélite (com internet)', imagen: 'Imagem dos potreiros',
+      semente_azevem: 'Semente azevém', semente_festuca: 'Semente festuca', semente_leguminosa: 'Semente leguminosa',
+      lista: 'Lista', tablero: 'Rotação', ahora: 'Agora', verano: 'Ver.', invierno: 'Inv.',
+      haEstacion: 'Hectares por estação', haSemillaCorto: 'ha semente', ver: 'Ver'
     }
   };
   var COLORES = { semente: '#f5b800', pastagem: '#2e9e4f', soja: '#7b5ea7', arroz: '#3a8fd1',
     nativo: '#a6c96a', resteva: '#8b8f96', outro: '#c9ced6' };
+  var COLORES_TIPO = { semente_azevem: '#f5b800', semente_festuca: '#e8740c', semente_leguminosa: '#d4569b' };
+  var TIPOS = ['semente_azevem', 'semente_festuca', 'semente_leguminosa', 'pastagem', 'soja', 'arroz', 'nativo', 'resteva', 'outro'];
+  function colorTipo(t) { return COLORES_TIPO[t] || COLORES[t] || COLORES.outro; }
+  function nombreTipo(t) { return t === 'outro' ? '?' : T(t); }
 
   // ---------------------------------------------------------------- estado
   var cfg = { usuario: '', idioma: 'es', url: '', clave: '' };
@@ -98,6 +108,8 @@
   var sincronizando = false;
   var mapa = null, capaPot = null, marcaGps = null;
   var filtroPot = 'todos';
+  var modoPot = 'lista';      // lista | tablero
+  var periodoMapa = 'ahora';  // estación que pinta el mapa
 
   function T(k) { return (TXT[cfg.idioma] || TXT.es)[k]; }
   function $(s, r) { return (r || document).querySelector(s); }
@@ -387,9 +399,9 @@
     Object.keys(datos.poligonos).forEach(function (n) {
       var pots = potrerosDePoligono(Number(n));
       if (!pots.length) return;
-      var u = usoAhora(pots[0]);
+      var tipo = periodoMapa === 'ahora' ? usoAhora(pots[0]).tipo : clasificar(pots[0].rotacao[periodoMapa]);
       var ll = datos.poligonos[n].map(function (c) { return [c[1], c[0]]; });
-      var pol = L.polygon(ll, { color: '#fff', weight: 1.5, fillColor: COLORES[u.cat], fillOpacity: 0.55 });
+      var pol = L.polygon(ll, { color: '#fff', weight: 1.5, fillColor: colorTipo(tipo), fillOpacity: 0.6 });
       pol.bindTooltip(String(n), { permanent: true, direction: 'center', className: 'etiqueta' });
       pol.on('click', function () {
         if (pots.length === 1) { ir('ficha', pots[0].id); return; }
@@ -401,11 +413,19 @@
       capaPot.addLayer(pol);
     });
   }
+  function etiquetaPer(per) {
+    return /^inv/.test(per) ? T('invierno') + ' ' + per.replace('inv ', '') : T('verano') + ' ' + per.replace(/^20/, '');
+  }
   function leyenda() {
-    var cats = ['semente', 'pastagem', 'soja', 'arroz', 'nativo', 'resteva'];
-    $('#leyenda').innerHTML = cats.map(function (c) {
-      return '<div><i style="background:' + COLORES[c] + '"></i>' + esc(T(c)) + '</div>';
+    var sel = '<select id="sel-periodo" aria-label="' + esc(T('ver')) + '"><option value="ahora">' + esc(T('ahora')) + '</option>' +
+      datos.periodos.map(function (p) {
+        return '<option value="' + esc(p) + '"' + (p === periodoMapa ? ' selected' : '') + '>' + esc(etiquetaPer(p)) + '</option>';
+      }).join('') + '</select>';
+    $('#leyenda').innerHTML = sel + TIPOS.filter(function (t) { return t !== 'outro'; }).map(function (c) {
+      return '<div><i style="background:' + colorTipo(c) + '"></i>' + esc(nombreTipo(c)) + '</div>';
     }).join('');
+    $('#sel-periodo').onchange = function () { periodoMapa = this.value; pintarPoligonos(); };
+    L.DomEvent.disableClickPropagation($('#leyenda'));
   }
   var gpsWatch = null;
   function iniciarGps() {
@@ -443,6 +463,10 @@
   }
 
   function vistaPotreros() {
+    var conm = '<div class="filtros conm"><button type="button" data-modo="lista" class="' + (modoPot === 'lista' ? 'activo' : '') + '">' +
+      esc(T('lista')) + '</button><button type="button" data-modo="tablero" class="' + (modoPot === 'tablero' ? 'activo' : '') + '">▦ ' +
+      esc(T('tablero')) + '</button></div>';
+    if (modoPot === 'tablero') { $('#tela-potreiros').innerHTML = conm + tableroRotacion(); return; }
     var hoy = new Date(), invSig = invernoSiguiente(hoy);
     var haSem = 0, haInv = 0;
     datos.potreiros.forEach(function (p) {
@@ -454,7 +478,7 @@
       var sa = usoAhora(a, hoy).cat === 'semente' ? 0 : 1, sb = usoAhora(b, hoy).cat === 'semente' ? 0 : 1;
       return sa - sb || a.poligono - b.poligono;
     }).filter(function (p) { return filtroPot === 'todos' || usoAhora(p, hoy).cat === filtroPot; });
-    var h = '<div class="resumen"><div class="tarjeta"><b>' + Math.round(haSem) + '</b><span class="mut">' + esc(T('haSemilla')) +
+    var h = conm + '<div class="resumen"><div class="tarjeta"><b>' + Math.round(haSem) + '</b><span class="mut">' + esc(T('haSemilla')) +
       '</span></div><div class="tarjeta"><b>' + Math.round(haInv) + '</b><span class="mut">' + esc(T('haInv')) + ' (' + esc(invSig) + ')</span></div></div>';
     h += '<div class="filtros">' + cats.map(function (c) {
       return '<button type="button" data-filtro="' + c + '" class="' + (filtroPot === c ? 'activo' : '') + '">' + esc(T(c)) + '</button>';
@@ -467,6 +491,39 @@
         '</div></div>' + chip(u.cat) + '</div></div>';
     });
     $('#tela-potreiros').innerHTML = h + '</div>';
+  }
+
+  function tableroRotacion() {
+    var hoy = new Date(), perAhora = periodoDe(hoy), pers = datos.periodos;
+    var filas = datos.potreiros.slice().sort(function (a, b) { return a.poligono - b.poligono || a.nome.localeCompare(b.nome); });
+    var tot = {};
+    pers.forEach(function (p) { tot[p] = {}; });
+    var h = '<div class="leyenda-rot">' + TIPOS.map(function (t) {
+      return '<span><i style="background:' + colorTipo(t) + '"></i>' + esc(nombreTipo(t)) + '</span>';
+    }).join('') + '</div><div class="tabla-rot"><table><thead><tr><th class="fija">' + esc(T('potrero')) + '</th>' +
+      pers.map(function (p) { return '<th class="' + (p === perAhora ? 'act' : '') + '">' + esc(etiquetaPer(p)) + '</th>'; }).join('') +
+      '</tr></thead><tbody>';
+    filas.forEach(function (p) {
+      h += '<tr data-ficha="' + p.id + '"><th class="fija">' + p.poligono + '. ' + esc(p.nome) + '<small>' + p.ha + ' ha</small></th>';
+      pers.forEach(function (per) {
+        var txt = p.rotacao[per] || '', t = clasificar(txt);
+        tot[per][t] = (tot[per][t] || 0) + p.ha;
+        h += '<td class="' + (per === perAhora ? 'act' : '') + '" style="background:' + colorTipo(t) + '" title="' + esc(txt) + '">' +
+          esc(txt || '—') + '</td>';
+      });
+      h += '</tr>';
+    });
+    var total = filas.reduce(function (a, p) { return a + p.ha; }, 0);
+    h += '</tbody><tfoot><tr><th class="fija">' + esc(T('haEstacion')) + '</th>' + pers.map(function (per) {
+      var barras = TIPOS.filter(function (t) { return tot[per][t]; }).map(function (t) {
+        return '<i style="background:' + colorTipo(t) + ';width:' + (100 * tot[per][t] / total).toFixed(1) + '%" title="' +
+          esc(nombreTipo(t)) + ': ' + Math.round(tot[per][t]) + ' ha"></i>';
+      }).join('');
+      var sem = ['semente_azevem', 'semente_festuca', 'semente_leguminosa'].reduce(function (a, t) { return a + (tot[per][t] || 0); }, 0);
+      return '<td class="' + (per === perAhora ? 'act' : '') + '"><div class="barra-ha">' + barras + '</div><b>' + Math.round(sem) +
+        '</b> ' + esc(T('haSemillaCorto')) + '</td>';
+    }).join('') + '</tr></tfoot></table></div>';
+    return h;
   }
 
   function vistaFicha(id) {
@@ -746,6 +803,7 @@
     else if (d.nueva) ir('visita', borrador && borrador.potreiro_id === d.nueva ? null : { nueva: true, potrero: d.nueva });
     else if (d.detalle) ir('detalle', d.detalle);
     else if (d.filtro) { filtroPot = d.filtro; vistaPotreros(); }
+    else if (d.modo) { modoPot = d.modo; vistaPotreros(); }
     else if (d.sync) sincronizar(true);
     else if (d.nivel) { borrador[d.nivel] = Number(d.v); guardarBorrador(); dibujarFormulario(); }
     else if (d.estado) { borrador.estado = Number(d.estado); guardarBorrador(); dibujarFormulario(); }
