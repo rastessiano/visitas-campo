@@ -1,6 +1,6 @@
 /*
  * Sugerencias de manejo por tipo de cultivo y mes.
- * SON UN BORRADOR PARA VALIDAR con Roberto y Gonzalo: dosis y momentos generales para el
+ * SON UN BORRADOR QUE VALIDA ROBERTO: dosis y momentos generales para el
  * sur de RS, no reemplazan el análisis de suelo ni el criterio del técnico en el potrero.
  * Formato: TIPO -> lista de { meses: [..], es: '...', pt: '...' }.
  * Los tipos salen de clasificarUso() en app.js.

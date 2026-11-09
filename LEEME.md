@@ -12,7 +12,7 @@ El proyecto (contexto, decisiones, fuentes) está en
 | Archivo | Qué es |
 |---|---|
 | `index.html`, `estilos.css`, `app.js` | La app |
-| `reglas.js` | Sugerencias de manejo por cultivo y mes. **Borrador a validar.** Se edita a mano |
+| `reglas.js` | Sugerencias de manejo por cultivo y mes. **Borrador; lo valida Roberto.** Se edita a mano |
 | `sw.js`, `manifest.webmanifest`, `icono-*.png` | Para instalarla y que abra sin señal |
 | `vendor/leaflet/` | Librería del mapa (1.9.4), copiada para no depender de internet |
 | `servidor/Codigo.gs` | El servidor: Apps Script en el Drive de rastessiano@gmail.com |
