@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v9';
+  var VERSION = '2026-11-09 v10';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -665,7 +665,8 @@
     todasLasVisitas().forEach(function (x) {
       if (x.v.potreiro_id !== p.id || !x.v.fecha) return;
       var d = new Date(String(x.v.fecha).slice(0, 10) + 'T12:00'); if (isNaN(d)) return;
-      var per = periodoDe(d); (vis[per] = vis[per] || []).push(d);
+      // La visita va a la estación de lo que había en el potrero ese día (un semillero en cosecha en noviembre es del invierno).
+      var per = usoAhora(p, d).per; (vis[per] = vis[per] || []).push(d);
     });
     function act(per) { return per === u.per ? 'act' : ''; }
     var h = '<button class="btn" type="button" data-nueva="' + p.id + '">＋ ' + esc(T('nuevaVisita')) + '</button>';

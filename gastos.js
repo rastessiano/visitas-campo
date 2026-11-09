@@ -190,6 +190,11 @@
     b.potreiros = pots.length ? pots.map(function (p) { return p.nome; }).join(', ') : T('general');
     var ha = pots.reduce(function (a, p) { return a + p.ha; }, 0);
     if (pots.length) b.ha = r2(ha);
+    // Zafra según lo que hay en el potrero esa fecha: en nov–ene un semillero en cosecha es del invierno.
+    if (pots.length && !b._zafraEditada) {
+      var d = new Date(String(b.fecha).slice(0, 10) + 'T12:00:00');
+      if (!isNaN(d)) { var u = SJ.usoAhora(pots[0], d); b.zafra = u.colheita ? u.per : zafraPorDefecto(b.fecha); }
+    }
     if (pots.length && !b._cultivoEditado) b.cultivo = pots[0].rotacao[b.zafra] || '';
     calcular(b);
   }
@@ -350,7 +355,7 @@
     var editando = !!b.editando;
     if (!editando || !b.usuario) b.usuario = SJ.cfg().usuario || '?';
     b.enviado = false;
-    ['_np_nombre', '_np_tipo', '_np_unidad', '_ultimo', '_totalEditado', '_cultivoEditado', '_precioFuente', '_tcFuente', '_tcEditado', 'editando']
+    ['_np_nombre', '_np_tipo', '_np_unidad', '_ultimo', '_totalEditado', '_cultivoEditado', '_precioFuente', '_tcFuente', '_tcEditado', '_zafraEditada', 'editando']
       .forEach(function (k) { delete b[k]; });
     if (b.tipo_cambio) SJ.kvSet('ultimoTc', b.tipo_cambio);
     var g = b;
@@ -378,7 +383,7 @@
       b.comprobanteUrl = typeof x.g.comprobante === 'string' ? x.g.comprobante : ((loc && loc.comprobanteUrl) || '');
     }
     // Al editar se respeta lo cargado: cultivo, total y tipo de cambio no se recalculan solos.
-    b._cultivoEditado = true; b._totalEditado = true; b._tcEditado = true;
+    b._cultivoEditado = true; b._totalEditado = true; b._tcEditado = true; b._zafraEditada = true;
     b.editando = true;
     calcular(b);
     borrador = b; guardarBorrador();
@@ -623,6 +628,7 @@
     if (k === 'total') borrador._totalEditado = true;
     if (k === 'precio_unit' || k === 'cantidad' || k === 'dosis_ha') borrador._totalEditado = false;
     if (k === 'cultivo') borrador._cultivoEditado = true;
+    if (k === 'zafra') borrador._zafraEditada = true;
     if (k === 'precio_unit') { borrador._precioFuente = ''; var pf = $('#tela-gasto .precio-fuente'); if (pf) pf.textContent = ''; }
     if (k === 'tipo_cambio') { borrador._tcEditado = true; borrador._tcFuente = ''; var tf = $('#tela-gasto .tc-fuente'); if (tf) tf.textContent = ''; }
     if (k === 'item_id') {
@@ -636,7 +642,7 @@
       calcular(borrador); guardarBorrador(); dibujar(); return;
     }
     if (k === 'zafra' || k === 'fecha' || k === 'ha') {
-      if (k === 'fecha') { borrador.zafra = zafraPorDefecto(borrador.fecha); borrador._tcEditado = false; }
+      if (k === 'fecha') { borrador.zafra = zafraPorDefecto(borrador.fecha); borrador._tcEditado = false; borrador._zafraEditada = false; }
       completar(borrador); guardarBorrador(); dibujar();
       if (k === 'fecha') aplicarPtax(borrador);
       return;
