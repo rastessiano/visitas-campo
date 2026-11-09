@@ -21,8 +21,13 @@
     porPotrero: 'Por potrero', porActividad: 'Por actividad', porPagador: 'Por quién pagó', porHa: '/ha',
     costoPotrero: 'Costos', sinTc: 'sin tipo de cambio', porZafra: 'Por campaña', sinZafra: 'Sin campaña',
     parteDe: 'Compartido con otros potreros: le toca el', notaReparto: 'Los gastos de varios potreros se reparten por hectáreas.', equivalente: 'equivale a',
-    pendienteG: 'Pendiente de enviar', enviadoG: 'Enviado', borrarG: 'Borrar este gasto',
+    pendienteG: 'Pendiente de enviar', enviadoG: 'Enviado', borrarG: '🗑 Borrar este gasto',
     confirmarBorrarG: '¿Borrar este gasto? Todavía no se envió.', verComprobante: 'Ver comprobante',
+    confirmarBorrarGEnv: '¿Borrar este gasto? También se borra de la planilla (queda una copia en la hoja «Gastos borrados»).',
+    editarG: '✏️ Editar este gasto', editarGastoT: 'Editar gasto', guardarCambiosG: 'Guardar cambios', editadoPendG: 'Editado, sin enviar',
+    cambiosOkG: 'Cambios guardados.', borradoOkG: 'Gasto borrado.', informeGasto: 'Gasto', comprobanteEnviado: 'Comprobante ya enviado',
+    precioRef: 'Precio de referencia (hoja Productos)', precioUltimo: 'Último precio usado', tcPtax: 'Dólar PTAX del Banco Central do Brasil (venta) del',
+    tcBuscando: 'Buscando el dólar del Banco Central do Brasil…', tcSinRed: 'Sin conexión: tipo de cambio del último gasto. Se puede corregir.',
     actividades: { siembra: 'Siembra', fertilizacion: 'Fertilización', aplicacion: 'Aplicación (herbicida, insecticida, fungicida)',
       cosecha: 'Cosecha', laboreo: 'Preparación de suelo', flete: 'Flete', mano_obra: 'Mano de obra',
       mantenimiento: 'Mantenimiento', compra: 'Compra de insumos', otro: 'Otro' }
@@ -41,8 +46,13 @@
     porPotrero: 'Por potreiro', porActividad: 'Por atividade', porPagador: 'Por quem pagou', porHa: '/ha',
     costoPotrero: 'Custos', sinTc: 'sem câmbio', porZafra: 'Por safra', sinZafra: 'Sem safra',
     parteDe: 'Compartilhado com outros potreiros: cabe a este', notaReparto: 'Os gastos de vários potreiros são divididos por hectares.', equivalente: 'equivale a',
-    pendienteG: 'Pendente de envio', enviadoG: 'Enviado', borrarG: 'Apagar este gasto',
+    pendienteG: 'Pendente de envio', enviadoG: 'Enviado', borrarG: '🗑 Apagar este gasto',
     confirmarBorrarG: 'Apagar este gasto? Ainda não foi enviado.', verComprobante: 'Ver comprovante',
+    confirmarBorrarGEnv: 'Apagar este gasto? Também será apagado da planilha (fica uma cópia na aba «Gastos borrados»).',
+    editarG: '✏️ Editar este gasto', editarGastoT: 'Editar gasto', guardarCambiosG: 'Salvar alterações', editadoPendG: 'Editado, não enviado',
+    cambiosOkG: 'Alterações salvas.', borradoOkG: 'Gasto apagado.', informeGasto: 'Gasto', comprobanteEnviado: 'Comprovante já enviado',
+    precioRef: 'Preço de referência (aba Produtos)', precioUltimo: 'Último preço usado', tcPtax: 'Dólar PTAX do Banco Central do Brasil (venda) de',
+    tcBuscando: 'Buscando o dólar do Banco Central do Brasil…', tcSinRed: 'Sem conexão: câmbio do último gasto. Pode corrigir.',
     actividades: { siembra: 'Semeadura', fertilizacion: 'Adubação', aplicacion: 'Aplicação (herbicida, inseticida, fungicida)',
       cosecha: 'Colheita', laboreo: 'Preparo do solo', flete: 'Frete', mano_obra: 'Mão de obra',
       mantenimiento: 'Manutenção', compra: 'Compra de insumos', otro: 'Outro' }
@@ -82,7 +92,11 @@
   function todosLosGastos() {
     var porId = {};
     gastosRemotos.forEach(function (g) { porId[g.id] = { g: g, local: false }; });
-    gastosLocales.forEach(function (g) { if (!porId[g.id]) porId[g.id] = { g: g, local: true }; });
+    gastosLocales.forEach(function (g) {
+      // Lo pendiente del teléfono (nuevo, editado o por borrar) manda sobre lo del servidor.
+      if (g.op === 'borrar') { if (!g.enviado) delete porId[g.id]; return; }
+      if (!porId[g.id] || !g.enviado) porId[g.id] = { g: g, local: true };
+    });
     return Object.keys(porId).map(function (k) { return porId[k]; })
       .sort(function (a, b) { return String(b.g.fecha).localeCompare(String(a.g.fecha)); });
   }
@@ -111,22 +125,36 @@
     function post(obj, ms) {
       obj.clave = cfg.clave;
       return SJ.fetchT(cfg.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(obj) }, ms || 60000)
-        .then(function (r) { return r.json(); }).then(function (j) { if (!j.ok) throw new Error(j.error || 'error'); return j; });
+        .then(function (r) { return r.json(); }).then(function (j) { if (!j.ok) throw new Error(j.error === 'pedido' ? T('servidorViejo') : (j.error || 'error')); return j; });
     }
     var cola = productosNuevos.filter(function (p) { return !p.enviado; });
     var pr = cola.reduce(function (acc, p) {
       return acc.then(function () { return post({ accion: 'producto', producto: p }); }).then(function () { p.enviado = true; });
     }, Promise.resolve()).then(function () { return SJ.kvSet('productosNuevos', productosNuevos); });
     pendientes().forEach(function (g) {
+      if (g.op === 'borrar') {
+        pr = pr.then(function () { return post({ accion: 'gastoBorrar', id: g.id, usuario: cfg.usuario }); }).then(function () {
+          gastosRemotos = gastosRemotos.filter(function (x) { return x.id !== g.id; });
+          return Promise.all([gastoDel(g.id), SJ.kvSet('gastosRemotos', gastosRemotos)]);
+        });
+        return;
+      }
       pr = pr.then(function () {
         return g.comprobante && g.comprobante.grande ? SJ.blobB64(g.comprobante.grande) : null;
       }).then(function (b64) {
         var o = {}; CAMPOS_G.forEach(function (c) { o[c] = g[c]; });
         if (b64) o.comprobante = { base64: b64 };
-        return post({ accion: 'gasto', gasto: o }, 120000);
+        if (g.op === 'editar' && !b64 && !g.comprobanteUrl) o.sinComprobante = true;
+        return post({ accion: g.op === 'editar' ? 'gastoEditar' : 'gasto', gasto: o }, 120000);
       }).then(function (j) {
-        g.enviado = true; if (j.comprobante) g.comprobanteUrl = j.comprobante;
+        g.enviado = true; if (j.comprobante !== undefined) g.comprobanteUrl = j.comprobante;
         if (g.comprobante) delete g.comprobante.grande;
+        if (g.op === 'editar') {
+          var copia = {}; CAMPOS_G.forEach(function (c) { copia[c] = g[c]; });
+          copia.comprobante = g.comprobanteUrl || '';
+          gastosRemotos = gastosRemotos.filter(function (x) { return x.id !== g.id; }).concat([copia]);
+          SJ.kvSet('gastosRemotos', gastosRemotos);
+        }
         return gastoPut(g);
       });
     });
@@ -175,9 +203,64 @@
   }
   function guardarBorrador() { SJ.kvSet('borradorGasto', borrador); }
 
+  // ------------------------------------------------------------ precio sugerido y tipo de cambio
+  // Precio: el de referencia de la hoja «Productos»; si no tiene, el último usado para ese producto.
+  function precioSugerido(p, idActual) {
+    if (p.precio_ref !== '' && p.precio_ref !== undefined && p.precio_ref !== null && num(p.precio_ref) !== null) {
+      return { precio: num(p.precio_ref), moneda: p.moneda || 'USD', fuente: T('precioRef') };
+    }
+    var u = todosLosGastos().filter(function (x) {
+      return x.g.item_id === p.id && x.g.id !== idActual && num(x.g.precio_unit) !== null;
+    })[0];
+    return u ? { precio: num(u.g.precio_unit), moneda: u.g.moneda || 'USD', fuente: T('precioUltimo') + ' (' + SJ.fechaDMA(u.g.fecha) + ')' } : null;
+  }
+
+  // Dólar PTAX (venta) del Banco Central do Brasil del día del gasto, o del último día hábil anterior.
+  var cachePtax = null;
+  function isoDia(x) { return x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2) + '-' + ('0' + x.getDate()).slice(-2); }
+  function mdy(x) { return ('0' + (x.getMonth() + 1)).slice(-2) + '-' + ('0' + x.getDate()).slice(-2) + '-' + x.getFullYear(); }
+  function ptax(fecha) {
+    var d = new Date(String(fecha).slice(0, 10) + 'T12:00:00'), hoy = new Date();
+    if (isNaN(d)) return Promise.reject(new Error('fecha'));
+    if (d > hoy) d = hoy;
+    var dia = isoDia(d), desde = new Date(d.getTime() - 10 * 864e5);
+    return (cachePtax ? Promise.resolve(cachePtax) : SJ.kvGet('ptax').then(function (c) { cachePtax = c || {}; return cachePtax; })).then(function (c) {
+      if (c[dia]) return c[dia];
+      var url = 'https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)' +
+        "?@dataInicial='" + mdy(desde) + "'&@dataFinalCotacao='" + mdy(d) + "'&$format=json&$select=cotacaoVenda,dataHoraCotacao";
+      return SJ.fetchT(url, {}, 15000).then(function (r) { return r.json(); }).then(function (j) {
+        var l = j.value || [];
+        if (!l.length) throw new Error('PTAX');
+        var u = l[l.length - 1], res = { tc: u.cotacaoVenda, dia: String(u.dataHoraCotacao).slice(0, 10) };
+        // Hoy antes de las 13 h todavía no hay PTAX del día: no se guarda, para volver a buscarla después.
+        if (res.dia === dia || dia < isoDia(hoy)) { c[dia] = res; SJ.kvSet('ptax', c); }
+        return res;
+      });
+    });
+  }
+  function aplicarPtax(b) {
+    if (b._tcEditado || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.fecha))) return;
+    b._tcFuente = T('tcBuscando'); pintarTc();
+    ptax(b.fecha).then(function (r) {
+      if (borrador !== b || b._tcEditado) return;
+      b.tipo_cambio = r.tc; b._tcFuente = T('tcPtax') + ' ' + SJ.fechaDMA(r.dia);
+      calcular(b); guardarBorrador(); pintarTc();
+    }).catch(function () {
+      if (borrador !== b) return;
+      b._tcFuente = b.tipo_cambio ? T('tcSinRed') : ''; pintarTc();
+    });
+  }
+  function pintarTc() {
+    if (!borrador) return;
+    var i = $('#tela-gasto [data-g="tipo_cambio"]'); if (i && document.activeElement !== i) i.value = borrador.tipo_cambio;
+    var f = $('#tela-gasto .tc-fuente'); if (f) f.textContent = borrador._tcFuente || '';
+    refrescarEquiv();
+  }
+
   function vistaGasto(arg) {
     if (!borrador || (arg && arg.nuevo)) borrador = nuevoBorrador(arg && arg.potrero);
     dibujar();
+    if (!borrador.editando) aplicarPtax(borrador);
   }
   function dibujar() {
     var b = borrador, d = SJ.datos(), cat = catalogo();
@@ -186,7 +269,7 @@
     }
     var dec = ' inputmode="decimal"';
     var pots = d.potreiros.slice().sort(function (a, c) { return a.poligono - c.poligono; });
-    var h = '<h2>' + esc(T('nuevoGastoT')) + '</h2><div class="grupo">' + campo('fecha', T('fechaG'), 'date') +
+    var h = '<h2>' + esc(b.editando ? T('editarGastoT') : T('nuevoGastoT')) + '</h2><div class="grupo">' + campo('fecha', T('fechaG'), 'date') +
       '<label class="campo">' + esc(T('actividad')) + '</label><div class="chips">' + ACTIVIDADES.map(function (a) {
         return '<button type="button" data-g-act="' + a + '" class="' + (b.actividad === a ? 'sel' : '') + '">' + esc(nombreAct(a)) + '</button>';
       }).join('') + '</div></div>';
@@ -216,16 +299,21 @@
       '</label><div class="niveles dos-op">' + ['USD', 'BRL'].map(function (m) {
         return '<button type="button" data-g-mon="' + m + '" class="' + (b.moneda === m ? 'sel' : '') + '">' + (m === 'USD' ? 'US$' : 'R$') + '</button>';
       }).join('') + '</div></div></div>' +
+      '<div class="mut pista precio-fuente">' + esc(b._precioFuente || '') + '</div>' +
       '<div class="dos"><div>' + campo('total', T('total') + ' (' + (b.moneda === 'BRL' ? 'R$' : 'US$') + ')', 'number', dec) + '</div><div>' +
       campo('tipo_cambio', T('tc'), 'number', dec) + '</div></div>' +
+      '<div class="mut pista tc-fuente">' + esc(b._tcFuente || '') + '</div>' +
       '<div class="mut equiv">' + equivalencia(b) + '</div></div>';
     h += '<div class="grupo"><label class="campo">' + esc(T('pagador')) + '</label><div class="niveles tres-op">' + PAGADORES.map(function (p) {
         return '<button type="button" data-g-pag="' + esc(p) + '" class="' + (b.pagador === p ? 'sel' : '') + '">' + esc(p) + '</button>';
       }).join('') + '</div>' + campo('proveedor', T('proveedor')) + campo('cuenta_contable', T('cuenta')) +
-      '<label class="campo">' + esc(T('comprobante')) + '</label><label class="btn sec" style="text-align:center">📷 ' + esc(T('agregarFoto')) +
+      '<label class="campo">' + esc(T('comprobante')) + '</label>' +
+      (b.op === 'editar' && b.comprobanteUrl && !(b.comprobante && b.comprobante.mini) ? '<div class="previas"><span><a href="' + esc(b.comprobanteUrl) +
+        '" target="_blank" rel="noopener">' + esc(T('comprobanteEnviado')) + '</a><button type="button" data-g-quitar-previo="1">×</button></span></div>' : '') +
+      '<label class="btn sec" style="text-align:center">📷 ' + esc(T('agregarFoto')) +
       '<input type="file" accept="image/*" data-g-foto="1" style="display:none"></label><div class="fotos" id="g-foto"></div>' +
       '<label class="campo">' + esc(T('obsG')) + '</label><textarea data-g="observaciones">' + esc(b.observaciones) + '</textarea></div>' +
-      '<button class="btn" type="button" data-g-guardar="1">✓ ' + esc(T('guardarG')) + '</button>' +
+      '<button class="btn" type="button" data-g-guardar="1">✓ ' + esc(b.editando ? T('guardarCambiosG') : T('guardarG')) + '</button>' +
       '<button class="btn sec" type="button" data-g-cancelar="1">' + esc(T('cancelar')) + '</button>';
     $('#tela-gasto').innerHTML = h;
     pintarFoto();
@@ -259,15 +347,76 @@
     calcular(b);
     if (num(b.total) === null) { SJ.aviso(T('faltaTotal')); return; }
     ['ha', 'cantidad', 'dosis_ha', 'precio_unit', 'total', 'tipo_cambio'].forEach(function (k) { var n = num(b[k]); b[k] = n === null ? '' : n; });
-    b.usuario = SJ.cfg().usuario || '?';
+    var editando = !!b.editando;
+    if (!editando || !b.usuario) b.usuario = SJ.cfg().usuario || '?';
     b.enviado = false;
-    ['_np_nombre', '_np_tipo', '_np_unidad', '_ultimo', '_totalEditado', '_cultivoEditado'].forEach(function (k) { delete b[k]; });
+    ['_np_nombre', '_np_tipo', '_np_unidad', '_ultimo', '_totalEditado', '_cultivoEditado', '_precioFuente', '_tcFuente', '_tcEditado', 'editando']
+      .forEach(function (k) { delete b[k]; });
     if (b.tipo_cambio) SJ.kvSet('ultimoTc', b.tipo_cambio);
     var g = b;
     gastoPut(g).then(function () { borrador = null; SJ.kvSet('borradorGasto', null); return recargar(); }).then(function () {
-      SJ.aviso(T('gastoGuardado'));
-      SJ.ir('gastos');
+      SJ.aviso(T(editando ? 'cambiosOkG' : 'gastoGuardado'));
+      if (editando) SJ.ir('detalleGasto', g.id); else SJ.ir('gastos');
       SJ.sincronizar(false);
+    });
+  }
+
+  // ------------------------------------------------------------ editar, borrar y compartir
+  function nuncaEnviado(loc) { return loc && !loc.enviado && loc.op !== 'editar'; }
+  function editarGasto(id) {
+    var x = todosLosGastos().filter(function (y) { return y.g.id === id; })[0];
+    if (!x) return;
+    var loc = gastosLocales.filter(function (y) { return y.id === id; })[0];
+    var b = {};
+    CAMPOS_G.forEach(function (c) { b[c] = x.g[c] === undefined || x.g[c] === null ? '' : x.g[c]; });
+    b.potreiro_ids = Array.isArray(x.g.potreiro_ids) ? x.g.potreiro_ids.slice() : (x.g.potreiro_ids ? String(x.g.potreiro_ids).split(' ') : []);
+    b.fecha = String(b.fecha).slice(0, 10);
+    if (nuncaEnviado(loc)) b.comprobante = loc.comprobante || null;
+    else {
+      b.op = 'editar';
+      b.comprobante = loc && !loc.enviado && loc.comprobante && loc.comprobante.grande ? loc.comprobante : null;
+      b.comprobanteUrl = typeof x.g.comprobante === 'string' ? x.g.comprobante : ((loc && loc.comprobanteUrl) || '');
+    }
+    // Al editar se respeta lo cargado: cultivo, total y tipo de cambio no se recalculan solos.
+    b._cultivoEditado = true; b._totalEditado = true; b._tcEditado = true;
+    b.editando = true;
+    calcular(b);
+    borrador = b; guardarBorrador();
+    SJ.ir('gasto');
+  }
+  function borrarGasto(id) {
+    var loc = gastosLocales.filter(function (y) { return y.id === id; })[0], nunca = nuncaEnviado(loc);
+    if (!confirm(T(nunca ? 'confirmarBorrarG' : 'confirmarBorrarGEnv'))) return;
+    var pr = nunca ? gastoDel(id) : gastoPut({ id: id, op: 'borrar', enviado: false });
+    if (borrador && borrador.id === id) { borrador = null; SJ.kvSet('borradorGasto', null); }
+    pr.then(recargar).then(function () {
+      SJ.aviso(T('borradoOkG'));
+      SJ.ir('gastos');
+      if (!nunca) SJ.sincronizar(false);
+    });
+  }
+  function filasGasto(g) {
+    return [
+      [T('actividad'), nombreAct(g.actividad)], [T('potrerosG'), g.potreiros], [T('haG'), g.ha], [T('zafra'), g.zafra], [T('cultivoG'), g.cultivo],
+      [T('dosis'), g.dosis_ha ? g.dosis_ha + ' ' + g.unidad + '/ha' : ''], [T('cantidad'), g.cantidad ? g.cantidad + ' ' + g.unidad : ''],
+      [T('precio'), g.precio_unit ? (g.moneda === 'BRL' ? 'R$ ' : 'US$ ') + Number(g.precio_unit).toLocaleString(SJ.idioma() === 'pt' ? 'pt-BR' : 'es-UY', { maximumFractionDigits: 4 }) + ' / ' + g.unidad : ''],
+      [T('total'), dinero(g.total, g.moneda)], [T('tc'), g.tipo_cambio],
+      ['US$', g.total_usd !== '' && g.total_usd !== undefined ? fmt(g.total_usd, 2) : ''], ['R$', g.total_brl !== '' && g.total_brl !== undefined ? fmt(g.total_brl, 2) : ''],
+      [T('pagador'), g.pagador], [T('proveedor'), g.proveedor], [T('cuenta'), g.cuenta_contable], [T('obsG'), g.observaciones]
+    ].filter(function (f) { return f[1] !== '' && f[1] !== null && f[1] !== undefined; });
+  }
+  function compartirGasto(id) {
+    var x = todosLosGastos().filter(function (y) { return y.g.id === id; })[0];
+    if (!x) return;
+    var g = x.g, loc = gastosLocales.filter(function (y) { return y.id === id; })[0];
+    var que = g.item || nombreAct(g.actividad);
+    var informe = T('informeGasto') + ' - Estância São José - ' + que + (g.potreiros ? ' - ' + g.potreiros : '') + (SJ.fechaDMA(g.fecha) ? ' - ' + SJ.fechaDMA(g.fecha) : '');
+    if (informe.length > 120) informe = informe.slice(0, 117) + '…';
+    var url = typeof g.comprobante === 'string' ? g.comprobante : (loc && loc.comprobanteUrl);
+    var blob = loc && loc.comprobante && (loc.comprobante.grande || loc.comprobante.mini);
+    SJ.compartirPdf(informe, informe + '\n' + dinero(g.total, g.moneda) + ' · ' + (g.usuario || ''), {
+      encabezado: T('informeGasto'), titulo: que, sub: SJ.fechaDMA(g.fecha) + ' · ' + (g.usuario || '') + ' · ' + dinero(g.total, g.moneda),
+      filas: filasGasto(g), blobs: blob ? [blob] : [], urls: url ? [url] : [], urlsTit: T('comprobante')
     });
   }
 
@@ -339,19 +488,14 @@
     if (!x) return SJ.ir('gastos');
     var g = x.g, pend = x.local && !g.enviado;
     var loc = gastosLocales.filter(function (y) { return y.id === id; })[0];
-    function fila(et, v) { return v === '' || v === null || v === undefined ? '' : '<dt>' + esc(et) + '</dt><dd>' + esc(v) + '</dd>'; }
     var url = g.comprobante && typeof g.comprobante === 'string' ? g.comprobante : (loc && loc.comprobanteUrl);
     var h = '<h2>' + esc(g.item || nombreAct(g.actividad)) + '</h2><div class="mut">' + esc(g.fecha) + ' · ' + esc(g.usuario) +
-      ' · <span class="estado-sync ' + (pend ? 'pend' : 'ok') + '">' + esc(pend ? T('pendienteG') : T('enviadoG')) + '</span></div>' +
-      '<div class="tarjeta"><dl class="det">' + fila(T('actividad'), nombreAct(g.actividad)) + fila(T('potrerosG'), g.potreiros) +
-      fila(T('haG'), g.ha) + fila(T('zafra'), g.zafra) + fila(T('cultivoG'), g.cultivo) +
-      fila(T('dosis'), g.dosis_ha ? g.dosis_ha + ' ' + g.unidad + '/ha' : '') + fila(T('cantidad'), g.cantidad ? g.cantidad + ' ' + g.unidad : '') +
-      fila(T('precio'), g.precio_unit ? dinero(g.precio_unit, g.moneda).replace(/ (\d+)$/, ' $1') + ' / ' + g.unidad : '') +
-      fila(T('total'), dinero(g.total, g.moneda)) + fila(T('tc'), g.tipo_cambio) +
-      fila('US$', g.total_usd !== '' ? fmt(g.total_usd, 2) : '') + fila('R$', g.total_brl !== '' ? fmt(g.total_brl, 2) : '') +
-      fila(T('pagador'), g.pagador) + fila(T('proveedor'), g.proveedor) + fila(T('cuenta'), g.cuenta_contable) + fila(T('obsG'), g.observaciones) +
+      ' · <span class="estado-sync ' + (pend ? 'pend' : 'ok') + '">' + esc(pend ? (g.op === 'editar' ? T('editadoPendG') : T('pendienteG')) : T('enviadoG')) + '</span></div>' +
+      '<div class="tarjeta"><dl class="det">' + filasGasto(g).map(function (f) { return '<dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd>'; }).join('') +
       '</dl></div>' + (url ? '<div class="tarjeta"><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(T('verComprobante')) + '</a></div>' : '') +
-      (pend ? '<button class="btn peligro" type="button" data-g-borrar="' + esc(g.id) + '">' + esc(T('borrarG')) + '</button>' : '');
+      '<button class="btn" type="button" data-g-compartir="' + esc(g.id) + '">' + esc(T('compartir')) + '</button>' +
+      '<button class="btn sec" type="button" data-g-editar="' + esc(g.id) + '">' + esc(T('editarG')) + '</button>' +
+      '<button class="btn peligro" type="button" data-g-borrar="' + esc(g.id) + '">' + esc(T('borrarG')) + '</button>';
     $('#tela-detalleGasto').innerHTML = h;
   }
 
@@ -448,18 +592,25 @@
   SJ.vistas.detalleGasto = vistaDetalleGasto;
 
   document.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-g-act],[data-g-mon],[data-g-pag],[data-g-guardar],[data-g-cancelar],[data-g-quitar-foto],[data-g-zafra],[data-g-detalle],[data-g-borrar],[data-g-csv],[data-g-nuevo-pot]');
+    var t = e.target.closest('[data-g-act],[data-g-mon],[data-g-pag],[data-g-guardar],[data-g-cancelar],[data-g-quitar-foto],[data-g-zafra],[data-g-detalle],[data-g-borrar],[data-g-csv],[data-g-nuevo-pot],[data-g-editar],[data-g-compartir],[data-g-quitar-previo]');
     if (!t) return;
     var d = t.dataset;
     if (d.gAct) { borrador.actividad = d.gAct; guardarBorrador(); dibujar(); }
     else if (d.gMon) { borrador.moneda = d.gMon; calcular(borrador); guardarBorrador(); dibujar(); }
     else if (d.gPag) { borrador.pagador = d.gPag; guardarBorrador(); dibujar(); }
     else if (d.gGuardar) guardar();
-    else if (d.gCancelar) { borrador = null; SJ.kvSet('borradorGasto', null); SJ.ir('gastos'); }
+    else if (d.gCancelar) {
+      var eraEdicion = borrador && borrador.editando ? borrador.id : null;
+      borrador = null; SJ.kvSet('borradorGasto', null);
+      if (eraEdicion) SJ.ir('detalleGasto', eraEdicion); else SJ.ir('gastos');
+    }
+    else if (d.gQuitarPrevio) { borrador.comprobanteUrl = ''; guardarBorrador(); dibujar(); }
+    else if (d.gEditar) editarGasto(d.gEditar);
+    else if (d.gCompartir) compartirGasto(d.gCompartir);
     else if (d.gQuitarFoto) { borrador.comprobante = null; guardarBorrador(); pintarFoto(); }
     else if (d.gZafra !== undefined) { filtroZafra = d.gZafra; SJ.vistas[$('#tela-costos').classList.contains('oculto') ? 'gastos' : 'costos'](); }
     else if (d.gDetalle) SJ.ir('detalleGasto', d.gDetalle);
-    else if (d.gBorrar) { if (confirm(T('confirmarBorrarG'))) gastoDel(d.gBorrar).then(recargar).then(function () { SJ.ir('gastos'); }); }
+    else if (d.gBorrar) borrarGasto(d.gBorrar);
     else if (d.gCsv) csv();
     else if (d.gNuevoPot) SJ.ir('gasto', { nuevo: true, potrero: d.gNuevoPot });
   });
@@ -472,15 +623,24 @@
     if (k === 'total') borrador._totalEditado = true;
     if (k === 'precio_unit' || k === 'cantidad' || k === 'dosis_ha') borrador._totalEditado = false;
     if (k === 'cultivo') borrador._cultivoEditado = true;
+    if (k === 'precio_unit') { borrador._precioFuente = ''; var pf = $('#tela-gasto .precio-fuente'); if (pf) pf.textContent = ''; }
+    if (k === 'tipo_cambio') { borrador._tcEditado = true; borrador._tcFuente = ''; var tf = $('#tela-gasto .tc-fuente'); if (tf) tf.textContent = ''; }
     if (k === 'item_id') {
       var p = producto(e.target.value);
+      borrador._precioFuente = '';
       if (p) {
         borrador.item = p.nombre; borrador.tipo_item = p.tipo; borrador.unidad = p.unidad; borrador.cuenta_contable = p.cuenta_contable || borrador.cuenta_contable;
-        if (p.precio_ref !== '' && p.precio_ref !== undefined) { borrador.precio_unit = p.precio_ref; borrador.moneda = p.moneda || borrador.moneda; }
+        var sug = precioSugerido(p, borrador.id);
+        if (sug) { borrador.precio_unit = sug.precio; borrador.moneda = sug.moneda; borrador._precioFuente = sug.fuente; borrador._totalEditado = false; }
       }
       calcular(borrador); guardarBorrador(); dibujar(); return;
     }
-    if (k === 'zafra' || k === 'fecha' || k === 'ha') { if (k === 'fecha') borrador.zafra = zafraPorDefecto(borrador.fecha); completar(borrador); guardarBorrador(); dibujar(); return; }
+    if (k === 'zafra' || k === 'fecha' || k === 'ha') {
+      if (k === 'fecha') { borrador.zafra = zafraPorDefecto(borrador.fecha); borrador._tcEditado = false; }
+      completar(borrador); guardarBorrador(); dibujar();
+      if (k === 'fecha') aplicarPtax(borrador);
+      return;
+    }
     calcular(borrador);
     if (k === 'dosis_ha') { var c = $('#tela-gasto [data-g="cantidad"]'); if (c) c.value = borrador.cantidad; }
     var tt = $('#tela-gasto [data-g="total"]'); if (tt && k !== 'total') tt.value = borrador.total;

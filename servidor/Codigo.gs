@@ -189,6 +189,8 @@ function doPost(e) {
     if (cuerpo.accion === 'visitaEditar' && cuerpo.visita && cuerpo.visita.id) return responder_(editarVisita_(cuerpo.visita));
     if (cuerpo.accion === 'visitaBorrar' && cuerpo.id) return responder_(borrarVisita_(cuerpo.id, cuerpo.usuario));
     if (cuerpo.accion === 'gasto' && cuerpo.gasto && cuerpo.gasto.id) return responder_(guardarGasto_(cuerpo.gasto));
+    if (cuerpo.accion === 'gastoEditar' && cuerpo.gasto && cuerpo.gasto.id) return responder_(editarGasto_(cuerpo.gasto));
+    if (cuerpo.accion === 'gastoBorrar' && cuerpo.id) return responder_(borrarGasto_(cuerpo.id, cuerpo.usuario));
     if (cuerpo.accion === 'producto' && cuerpo.producto && cuerpo.producto.id) return responder_(guardarProducto_(cuerpo.producto));
     return responder_({ ok: false, error: 'pedido' });
   } finally {
@@ -300,6 +302,46 @@ function guardarGasto_(g) {
 }
 
 /** Gastos con los números como números (getValues), sin depender del formato regional. */
+/**
+ * Reescribe un gasto ya enviado. «recibido» pasa a ahora y «exportado» se vacía: así la
+ * contabilidad (GET gastos desde=…) lo vuelve a traer con el mismo id y lo actualiza.
+ */
+function editarGasto_(g) {
+  const hoja = hojaGastos_();
+  const n = filaDeId_(hoja, g.id);
+  if (!n) return guardarGasto_(g);
+  const antes = hoja.getRange(n, 1, 1, COLUMNAS_GASTOS.length).getValues()[0];
+  let comprobante = antes[COLUMNAS_GASTOS.indexOf('comprobante')];
+  if (g.comprobante && g.comprobante.base64) {
+    comprobante = guardarFoto_(g.comprobante.base64,
+      ['Comprobante', g.fecha, g.item || g.actividad, g.usuario, 'edit'].join(' - ') + '.jpg');
+  } else if (g.sinComprobante) comprobante = '';
+  const fila = COLUMNAS_GASTOS.map(function (c) {
+    if (c === 'comprobante') return comprobante;
+    if (c === 'recibido') return new Date();
+    if (c === 'exportado') return '';
+    if (c === 'fecha') return "'" + String(g.fecha || '').slice(0, 10);
+    if (c === 'potreiro_ids') return (g.potreiro_ids || []).join(' ');
+    const x = g[c];
+    return x === undefined || x === null ? '' : x;
+  });
+  hoja.getRange(n, 1, 1, COLUMNAS_GASTOS.length).setValues([fila]);
+  return { ok: true, id: g.id, comprobante: comprobante, editado: true };
+}
+
+/** Saca el gasto de la hoja «Gastos» y lo guarda en «Gastos borrados». */
+function borrarGasto_(id, usuario) {
+  const hoja = hojaGastos_();
+  const n = filaDeId_(hoja, id);
+  if (!n) return { ok: true, id: id, noEstaba: true };
+  const papelera = hojaConColumnas_('Gastos borrados', COLUMNAS_GASTOS.concat(['borrado', 'borrado_por']));
+  const fila = hoja.getRange(n, 1, 1, COLUMNAS_GASTOS.length).getValues()[0];
+  fila[1] = "'" + (fila[1] instanceof Date ? Utilities.formatDate(fila[1], 'America/Sao_Paulo', 'yyyy-MM-dd') : fila[1]);
+  papelera.appendRow(fila.concat([new Date(), usuario || '']));
+  hoja.deleteRow(n);
+  return { ok: true, id: id, borrado: true };
+}
+
 function leerGastos_(desde) {
   const hoja = hojaGastos_();
   const n = hoja.getLastRow();

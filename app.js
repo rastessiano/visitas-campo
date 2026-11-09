@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v8';
+  var VERSION = '2026-11-09 v9';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -545,10 +545,21 @@
       $('#aqui').classList.add('oculto');
     }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
   }
+  // Distancia en metros desde un punto al vértice más cercano de los potreros.
+  function distanciaAlCampo(lat, lon) {
+    var min = Infinity, k = Math.cos(lat * Math.PI / 180);
+    for (var n in datos.poligonos) datos.poligonos[n].forEach(function (v) {
+      var dx = (v[0] - lon) * k, dy = v[1] - lat, d = Math.sqrt(dx * dx + dy * dy) * 111320;
+      if (d < min) min = d;
+    });
+    return min;
+  }
   function cartelAqui() {
     var a = $('#aqui');
     if (!gpsPos || !datos) return;
     var n = poligonoEn(gpsPos.lat, gpsPos.lon);
+    // Lejos de la Estância (más de 5 km) el cartel no sirve: se oculta.
+    if (n === null && distanciaAlCampo(gpsPos.lat, gpsPos.lon) > 5000) { a.classList.add('oculto'); return; }
     a.classList.remove('oculto');
     if (n === null) { a.innerHTML = '<div><b>' + esc(T('fueraCampo')) + '</b>± ' + gpsPos.prec + ' m</div>'; return; }
     var pots = potrerosDePoligono(n);
@@ -1010,10 +1021,9 @@
       [T('gps'), v.lat ? Number(v.lat).toFixed(5) + ', ' + Number(v.lon).toFixed(5) + (v.precision_m ? ' ± ' + v.precision_m + ' m' : '') : '']
     ].filter(function (f) { return f[1] !== '' && f[1] !== undefined && f[1] !== null; });
   }
-  function hacerPdfVisita(v) {
-    var loc = locales.filter(function (y) { return y.id === v.id; })[0];
-    var blobs = loc && loc.fotos ? loc.fotos.map(function (f) { return f && (f.grande || f.mini); }).filter(Boolean) : [];
-    var urls = (Array.isArray(v.fotos) && typeof v.fotos[0] === 'string') ? v.fotos : ((loc && loc.fotosUrl) || []);
+  // d = { encabezado, titulo, sub, filas: [[etiqueta, valor]], blobs: [fotos], urls: [links], urlsTit }
+  function hacerPdf(d) {
+    var blobs = d.blobs || [], urls = d.urls || [];
     return Promise.all([cargarImagen('logo-barra.png')].concat(blobs.map(function (b) {
       return window.createImageBitmap ? createImageBitmap(b).catch(function () { return null; }) : cargarImagen(URL.createObjectURL(b));
     }))).then(function (imgs) {
@@ -1026,12 +1036,12 @@
       c.fillStyle = DORADO; c.fillRect(0, 150, W, 8);
       if (logo) c.drawImage(logo, M, 43, 290, 64);
       c.fillStyle = '#fff'; c.textAlign = 'right'; c.font = '600 34px Poppins, sans-serif';
-      c.fillText('Estância São José · ' + T('visitaCampo'), W - M, 88);
+      c.fillText('Estância São José · ' + d.encabezado, W - M, 88);
       c.textAlign = 'left';
       var y = 240;
-      c.fillStyle = AZUL; c.font = '700 54px Poppins, sans-serif'; c.fillText(String(v.potreiro || ''), M, y);
+      c.fillStyle = AZUL; c.font = '700 54px Poppins, sans-serif'; c.fillText(String(d.titulo || ''), M, y);
       y += 52; c.fillStyle = GRIS; c.font = '30px Nunito, sans-serif';
-      c.fillText(String(v.fecha || '').replace('T', ' ').slice(0, 16) + ' · ' + (v.usuario || ''), M, y);
+      c.fillText(d.sub || '', M, y);
       y += 40;
       function partir(txt, ancho) {
         var out = [];
@@ -1046,13 +1056,15 @@
         return out;
       }
       var colEt = 380;
-      filasVisita(v).forEach(function (f) {
+      d.filas.forEach(function (f) {
         c.font = '30px Nunito, sans-serif';
         var lineas = partir(f[1], W - 2 * M - colEt - 20);
-        var alto = Math.max(1, lineas.length) * 40 + 24;
+        c.font = '600 26px Poppins, sans-serif';
+        var etiq = partir(f[0], colEt - 20);
+        var alto = Math.max(Math.max(1, lineas.length) * 40, etiq.length * 34 + 6) + 24;
         c.strokeStyle = '#e3e7ee'; c.lineWidth = 2; c.beginPath(); c.moveTo(M, y); c.lineTo(W - M, y); c.stroke();
-        c.fillStyle = GRIS; c.font = '600 26px Poppins, sans-serif';
-        partir(f[0], colEt - 20).forEach(function (l, i) { c.fillText(l, M, y + 40 + i * 34); });
+        c.fillStyle = GRIS;
+        etiq.forEach(function (l, i) { c.fillText(l, M, y + 40 + i * 34); });
         c.fillStyle = TINTA; c.font = '30px Nunito, sans-serif';
         lineas.forEach(function (l, i) { c.fillText(l, M + colEt, y + 40 + i * 40); });
         y += alto;
@@ -1068,7 +1080,7 @@
         });
         y += altoFila + 30;
       } else if (urls.length) {
-        c.fillStyle = AZUL; c.font = '600 26px Poppins, sans-serif'; c.fillText(T('fotosDrive') + ':', M, y + 30); y += 50;
+        c.fillStyle = AZUL; c.font = '600 26px Poppins, sans-serif'; c.fillText((d.urlsTit || T('fotosDrive')) + ':', M, y + 30); y += 50;
         c.font = '22px Nunito, sans-serif';
         urls.forEach(function (u) { c.fillText(u, M, y + 20); y += 34; });
         y += 20;
@@ -1084,18 +1096,30 @@
       });
     });
   }
+  function fechaDMA(fecha) {
+    var f = String(fecha || '').slice(0, 10).split('-');
+    return f.length === 3 ? f[2] + '/' + f[1] + '/' + f[0] : '';
+  }
   function compartirVisita(id) {
     var x = todasLasVisitas().filter(function (y) { return y.v.id === id; })[0];
     if (!x) return;
     var v = x.v;
-    aviso(T('armandoPdf'));
-    // El nombre del informe es el asunto del mail y el nombre del archivo.
-    var f = String(v.fecha || '').slice(0, 10).split('-');
-    var informe = T('visitaCampo') + ' - Estância São José - ' + (v.potreiro || '') + (f.length === 3 ? ' - ' + f[2] + '/' + f[1] + '/' + f[0] : '');
-    var nombre = informe.replace(/\//g, '-').replace(/[\\:*?"<>|]/g, '-').trim() + '.pdf';
+    var loc = locales.filter(function (y) { return y.id === v.id; })[0];
+    var informe = T('visitaCampo') + ' - Estância São José - ' + (v.potreiro || '') + (fechaDMA(v.fecha) ? ' - ' + fechaDMA(v.fecha) : '');
     var texto = informe + '\n' + String(v.fecha || '').replace('T', ' ').slice(11, 16) + ' · ' + (v.usuario || '');
+    compartirPdf(informe, texto, {
+      encabezado: T('visitaCampo'), titulo: v.potreiro, sub: String(v.fecha || '').replace('T', ' ').slice(0, 16) + ' · ' + (v.usuario || ''),
+      filas: filasVisita(v),
+      blobs: loc && loc.fotos ? loc.fotos.map(function (f) { return f && (f.grande || f.mini); }).filter(Boolean) : [],
+      urls: (Array.isArray(v.fotos) && typeof v.fotos[0] === 'string') ? v.fotos : ((loc && loc.fotosUrl) || [])
+    });
+  }
+  // El nombre del informe es el asunto del mail y el nombre del archivo.
+  function compartirPdf(informe, texto, d) {
+    aviso(T('armandoPdf'));
+    var nombre = informe.replace(/\//g, '-').replace(/[\\:*?"<>|]/g, '-').trim() + '.pdf';
     (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
-      return hacerPdfVisita(v);
+      return hacerPdf(d);
     }).then(function (blob) {
       var file = new File([blob], nombre, { type: 'application/pdf' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1212,6 +1236,7 @@
   SJ.categoria = categoria; SJ.colorTipo = colorTipo; SJ.nombreTipo = nombreTipo; SJ.etiquetaPer = etiquetaPer;
   SJ.ir = ir; SJ.pill = pill; SJ.sincronizar = sincronizar; SJ.selectorRegistros = selectorRegistros;
   SJ.idioma = function () { return cfg.idioma; };
+  SJ.compartirPdf = compartirPdf; SJ.fechaDMA = fechaDMA;
   SJ.visitas = function () { return todasLasVisitas().map(function (x) { return x.v; }); };
 
   // ---------------------------------------------------------------- arranque

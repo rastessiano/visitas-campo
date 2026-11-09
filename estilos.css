@@ -235,3 +235,5 @@ button.opcion b{display:block;font-size:17px;color:var(--azul);margin-bottom:4px
 .linea-marcas span:first-child{text-align:left}.linea-marcas span:last-child{text-align:right}
 .linea-marcas span.hoy{color:#9a6a0a;font-weight:700}
 .linea-marcas span.sel{color:var(--azul);font-weight:700}
+.pista{font-size:12px;color:var(--verde);margin-top:4px;min-height:0}
+.pista:empty{display:none}
