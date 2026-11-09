@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v13';
+  var VERSION = '2026-11-09 v14';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -30,6 +30,7 @@
       todos: 'Todos', semente: 'Semilla', pastagem: 'Pastura', soja: 'Soja', arroz: 'Arroz',
       nativo: 'Campo nativo', resteva: 'Rastrojo', outro: 'Otro', colheita: 'en cosecha',
       haSemilla: 'ha en semilla ahora', haInv: 'ha de semilla en el próximo invierno',
+      haAhoraDe: 'ha de {c} este año', haSigDe: 'ha de {c} el año que viene',
       potrero: 'Potrero', elegir: 'Elegir…', fecha: 'Fecha y hora', gps: 'Ubicación',
       gpsNo: 'Sin GPS', gpsActualizar: 'Tomar GPS', uso: 'Cultivo / uso que se ve',
       fase: 'Fase', estado: 'Estado general', estados: ['Muy malo', 'Malo', 'Regular', 'Bueno', 'Muy bueno'],
@@ -85,6 +86,7 @@
       todos: 'Todos', semente: 'Semente', pastagem: 'Pastagem', soja: 'Soja', arroz: 'Arroz',
       nativo: 'Campo nativo', resteva: 'Resteva', outro: 'Outro', colheita: 'em colheita',
       haSemilla: 'ha em semente agora', haInv: 'ha de semente no próximo inverno',
+      haAhoraDe: 'ha de {c} este ano', haSigDe: 'ha de {c} no ano que vem',
       potrero: 'Potreiro', elegir: 'Escolher…', fecha: 'Data e hora', gps: 'Localização',
       gpsNo: 'Sem GPS', gpsActualizar: 'Pegar GPS', uso: 'Cultura / uso observado',
       fase: 'Fase', estado: 'Estado geral', estados: ['Muito ruim', 'Ruim', 'Regular', 'Bom', 'Muito bom'],
@@ -599,19 +601,28 @@
       esc(T('lista')) + '</button><button type="button" data-modo="tablero" class="' + (modoPot === 'tablero' ? 'activo' : '') + '">▦ ' +
       esc(T('tablero')) + '</button></div>';
     if (modoPot === 'tablero') { $('#tela-potreiros').innerHTML = conm + tableroRotacion(); return; }
-    var hoy = new Date(), invSig = invernoSiguiente(hoy);
-    var haSem = 0, haInv = 0;
+    var hoy = new Date();
+    // Resumen de arriba según el filtro: hectáreas de ese uso ahora contra el año que viene.
+    // Semilla (y «Todos»): contra el próximo invierno. El resto: contra la misma estación del año siguiente.
+    var catRes = filtroPot === 'todos' ? 'semente' : filtroPot;
+    var perSig;
+    if (catRes === 'semente') perSig = invernoSiguiente(hoy);
+    else { var iP = datos.periodos.indexOf(periodoDe(hoy)); perSig = iP >= 0 ? datos.periodos[iP + 2] : null; }
+    var haAhora = 0, haSig = 0;
     datos.potreiros.forEach(function (p) {
-      if (usoAhora(p, hoy).cat === 'semente') haSem += p.ha;
-      if (categoria(clasificar(p.rotacao[invSig])) === 'semente') haInv += p.ha;
+      if (usoAhora(p, hoy).cat === catRes) haAhora += p.ha;
+      if (perSig && categoria(clasificar(p.rotacao[perSig] || '')) === catRes) haSig += p.ha;
     });
+    var nomRes = String(T(catRes)).toLowerCase();
     var cats = ['todos', 'semente', 'pastagem', 'soja', 'arroz', 'nativo', 'resteva'];
     var lista = datos.potreiros.slice().sort(function (a, b) {
       var sa = usoAhora(a, hoy).cat === 'semente' ? 0 : 1, sb = usoAhora(b, hoy).cat === 'semente' ? 0 : 1;
       return sa - sb || a.poligono - b.poligono;
     }).filter(function (p) { return filtroPot === 'todos' || usoAhora(p, hoy).cat === filtroPot; });
-    var h = conm + '<div class="resumen"><div class="tarjeta"><b>' + Math.round(haSem) + '</b><span class="mut">' + esc(T('haSemilla')) +
-      '</span></div><div class="tarjeta"><b>' + Math.round(haInv) + '</b><span class="mut">' + esc(T('haInv')) + ' (' + esc(invSig) + ')</span></div></div>';
+    var h = conm + '<div class="resumen"><div class="tarjeta"><b>' + Math.round(haAhora) + '</b><span class="mut">' +
+      esc(T('haAhoraDe').replace('{c}', nomRes)) + ' (' + esc(catRes === 'semente' ? String(T('ahora')).toLowerCase() : etiquetaPer(periodoDe(hoy))) + ')</span></div><div class="tarjeta"><b>' +
+      (perSig ? Math.round(haSig) : '—') + '</b><span class="mut">' + esc(T('haSigDe').replace('{c}', nomRes)) +
+      (perSig ? ' (' + esc(etiquetaPer(perSig)) + ')' : '') + '</span></div></div>';
     h += '<div class="filtros">' + cats.map(function (c) {
       return '<button type="button" data-filtro="' + c + '" class="' + (filtroPot === c ? 'activo' : '') + '">' + esc(T(c)) + '</button>';
     }).join('') + '</div><div class="lista-pot">';
