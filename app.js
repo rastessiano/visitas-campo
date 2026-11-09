@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v3';
+  var VERSION = '2026-11-09 v4';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
