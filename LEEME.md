@@ -11,7 +11,10 @@ El proyecto (contexto, decisiones, fuentes) está en
 
 | Archivo | Qué es |
 |---|---|
-| `index.html`, `estilos.css`, `app.js` | La app |
+| `index.html`, `estilos.css`, `app.js` | La app: mapa, potreros, rotación, visitas, ajustes |
+| `gastos.js` | Gastos y tareas con su costo (USD y R$), productos, costos por potrero/zafra, CSV |
+| `asistente.js` | Asistente de consultas (pregunta al servidor, que consulta a Claude) |
+| `inicio.js` | Arranca la app después de cargar los módulos |
 | `reglas.js` | Sugerencias de manejo por cultivo y mes. **Borrador; lo valida Roberto.** Se edita a mano |
 | `sw.js`, `manifest.webmanifest`, `icono-*.png` | Para instalarla y que abra sin señal |
 | `vendor/leaflet/` | Librería del mapa (1.9.4), copiada para no depender de internet |
@@ -48,6 +51,23 @@ Versión nueva, para que la URL siga siendo la misma.
 
 La app publicada: https://rastessiano.github.io/visitas-campo/ (repo público
 `rastessiano/visitas-campo`, solo código; se publica copiando estos archivos menos `datos/`).
+
+## Gastos y contabilidad
+
+- Cada gasto o tarea: fecha, actividad, potreros (o general), hectáreas, zafra y cultivo (centro de
+  costo), producto o labor, dosis/ha, cantidad, precio, moneda (USD o R$), tipo de cambio, total en
+  las dos monedas, quién pagó (João Antonio, Pastos o compartido), proveedor, cuenta contable y foto
+  del comprobante. Si un gasto abarca varios potreros, el costo se reparte por hectáreas.
+- Catálogo en la hoja «Productos» de la planilla (precio de referencia y cuenta contable por producto).
+- Para otro sistema contable: `GET <URL>?accion=gastos&clave=<CLAVE>&desde=AAAA-MM-DD` devuelve los
+  gastos en JSON, cada uno con id fijo; la columna `exportado` de la hoja queda para marcar lo que ya
+  pasó a contabilidad. En la app, Registros → Costos → «Exportar CSV».
+
+## Asistente
+
+Usa Claude (modelo `claude-opus-5-5`, esfuerzo bajo, caché del contexto del campo) desde el Apps
+Script. La clave de Claude va en Configuración del proyecto → Propiedades del script →
+`ANTHROPIC_API_KEY`; nunca en la app. Arma el contexto con la rotación, las visitas y los gastos.
 
 ## Probar en la compu
 

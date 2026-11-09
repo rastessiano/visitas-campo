@@ -5,7 +5,13 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v2';
+  var VERSION = '2026-11-09 v3';
+  // Punto de enganche para los módulos (gastos.js, asistente.js).
+  var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
+  SJ.T = function (k) {
+    var l = (cfg && cfg.idioma) || 'es';
+    return (SJ.textos[l] || {})[k] || SJ.textos.es[k] || T(k) || k;
+  };
   var USUARIOS = ['Roberto', 'Gonzalo', 'João Antonio', 'Técnico'];
 
   // ---------------------------------------------------------------- textos
@@ -48,7 +54,10 @@
       sinRemanente: '', satelite: 'Satélite (con internet)', imagen: 'Imagen de los potreros',
       semente_azevem: 'Semilla raigrás', semente_festuca: 'Semilla festuca', semente_leguminosa: 'Semilla leguminosa',
       lista: 'Lista', tablero: 'Rotación', ahora: 'Ahora', verano: 'Ver.', invierno: 'Inv.',
-      haEstacion: 'Hectáreas por estación', haSemillaCorto: 'ha semilla', ver: 'Ver'
+      haEstacion: 'Hectáreas por estación', haSemillaCorto: 'ha semilla', ver: 'Ver',
+      registros: 'Registros', asistente: 'Asistente', nuevoQue: '¿Qué querés cargar?',
+      nuevaVisitaDesc: 'Recorrida: estado del cultivo, malezas, plagas, pastoreo, fotos.',
+      nuevoGasto: 'Gasto o tarea', nuevoGastoDesc: 'Insumo aplicado, labor, flete o mano de obra, con su costo.'
     },
     pt: {
       mapa: 'Mapa', potreiros: 'Potreiros', nueva: 'Visita', visitas: 'Visitas', config: 'Ajustes',
@@ -88,7 +97,10 @@
       sinRemanente: '', satelite: 'Satélite (com internet)', imagen: 'Imagem dos potreiros',
       semente_azevem: 'Semente azevém', semente_festuca: 'Semente festuca', semente_leguminosa: 'Semente leguminosa',
       lista: 'Lista', tablero: 'Rotação', ahora: 'Agora', verano: 'Ver.', invierno: 'Inv.',
-      haEstacion: 'Hectares por estação', haSemillaCorto: 'ha semente', ver: 'Ver'
+      haEstacion: 'Hectares por estação', haSemillaCorto: 'ha semente', ver: 'Ver',
+      registros: 'Registros', asistente: 'Assistente', nuevoQue: 'O que você quer registrar?',
+      nuevaVisitaDesc: 'Vistoria: estado da lavoura, invasoras, pragas, pastejo, fotos.',
+      nuevoGasto: 'Gasto ou tarefa', nuevoGastoDesc: 'Insumo aplicado, operação, frete ou mão de obra, com seu custo.'
     }
   };
   var COLORES = { semente: '#f5b800', pastagem: '#2e9e4f', soja: '#7b5ea7', arroz: '#3a8fd1',
@@ -135,10 +147,12 @@
   function db() {
     if (dbP) return dbP;
     dbP = new Promise(function (ok, mal) {
-      var r = indexedDB.open('visitas-sao-jose', 1);
+      var r = indexedDB.open('visitas-sao-jose', 2);
       r.onupgradeneeded = function () {
-        r.result.createObjectStore('kv', { keyPath: 'k' });
-        r.result.createObjectStore('visitas', { keyPath: 'id' });
+        var d = r.result;
+        if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv', { keyPath: 'k' });
+        if (!d.objectStoreNames.contains('visitas')) d.createObjectStore('visitas', { keyPath: 'id' });
+        if (!d.objectStoreNames.contains('gastos')) d.createObjectStore('gastos', { keyPath: 'id' });
       };
       r.onsuccess = function () { ok(r.result); };
       r.onerror = function () { mal(r.error); };
@@ -246,7 +260,7 @@
 
   // ---------------------------------------------------------------- barra de sincronización
   function pill() {
-    var b = $('#btn-sync'), n = pendientes().length;
+    var b = $('#btn-sync'), n = pendientes().length + SJ.pendientesExtra.reduce(function (a, f) { return a + f(); }, 0);
     b.classList.remove('pend', 'ok');
     if (sincronizando) { b.textContent = '⟳ …'; return; }
     if (!cfg.url) { b.textContent = T('sinServidor'); return; }
@@ -300,6 +314,8 @@
       }).then(enviarSiguiente);
     }
     return enviarSiguiente().then(function () {
+      return SJ.alSincronizar.reduce(function (pr, f) { return pr.then(f); }, Promise.resolve());
+    }).then(function () {
       return fetchT(cfg.url + '?accion=visitas&clave=' + encodeURIComponent(cfg.clave), {}, 45000);
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (!j.ok) throw new Error(j.error || 'error');
@@ -334,7 +350,8 @@
     document.querySelectorAll('.tela').forEach(function (s) { s.classList.add('oculto'); });
     $('#tela-' + tela).classList.remove('oculto');
     document.querySelectorAll('.pestanas button').forEach(function (b) {
-      b.classList.toggle('activa', b.dataset.tela === tela || (tela === 'visita' && b.dataset.tela === 'nueva'));
+      var grupo = { visita: 'nueva', nuevo: 'nueva', gasto: 'nueva', gastos: 'visitas', costos: 'visitas', detalle: 'visitas', detalleGasto: 'visitas', ficha: 'potreiros' }[tela];
+      b.classList.toggle('activa', b.dataset.tela === tela || b.dataset.tela === grupo);
     });
     telaActual = tela;
     if (tela === 'mapa') encuadrar();
@@ -344,6 +361,8 @@
     if (tela === 'visitas') vistaVisitas(arg);
     if (tela === 'detalle') vistaDetalle(arg);
     if (tela === 'config') vistaConfig();
+    if (tela === 'nuevo') vistaNuevo();
+    if (SJ.vistas[tela]) SJ.vistas[tela](arg);
     $('#tela-' + tela).scrollTop = 0;
   }
   var fichaActual = null;
@@ -353,6 +372,7 @@
     if (telaActual === 'ficha' && fichaActual) vistaFicha(fichaActual);
     if (telaActual === 'visitas') vistaVisitas();
     if (telaActual === 'config') vistaConfig();
+    if (SJ.vistas[telaActual] && telaActual !== 'gasto' && telaActual !== 'asistente') SJ.vistas[telaActual]();
   }
   function textos() {
     document.querySelectorAll('[data-t]').forEach(function (e) { e.textContent = T(e.dataset.t); });
@@ -542,7 +562,7 @@
       : ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     h += '<h3>' + esc(T('planMensual')) + '</h3><div class="meses">';
     for (var m = 1; m <= 12; m++) h += '<div class="' + (m === mesHoy ? 'actual' : '') + '"><b>' + nm[m - 1] + '</b>' + esc(p.mensal[m] || '') + '</div>';
-    h += '</div><h3>' + esc(T('historial')) + '</h3>' + listaVisitas(function (v) { return v.potreiro_id === p.id; });
+    h += '</div>' + (SJ.fichaExtra ? SJ.fichaExtra(p) : '') + '<h3>' + esc(T('historial')) + '</h3>' + listaVisitas(function (v) { return v.potreiro_id === p.id; });
     $('#tela-ficha').innerHTML = h;
   }
 
@@ -557,9 +577,19 @@
         '</div></div><span class="estado-sync ' + (pend ? 'pend' : 'ok') + '">' + (pend ? '⬆' : '✓') + '</span></div></div>';
     }).join('');
   }
+  function selectorRegistros(actual) {
+    return '<div class="filtros conm">' + [['visitas', T('visitas')], ['gastos', SJ.T('gastos')], ['costos', SJ.T('costos')]].map(function (x) {
+      return '<button type="button" data-tela="' + x[0] + '" class="' + (actual === x[0] ? 'activo' : '') + '">' + esc(x[1]) + '</button>';
+    }).join('') + '</div>';
+  }
+  function vistaNuevo() {
+    $('#tela-nuevo').innerHTML = '<h2>' + esc(T('nuevoQue')) + '</h2>' +
+      '<button class="tarjeta opcion" type="button" data-nueva-visita="1"><b>🌱 ' + esc(T('nuevaVisita')) + '</b><span class="mut">' + esc(T('nuevaVisitaDesc')) + '</span></button>' +
+      '<button class="tarjeta opcion" type="button" data-tela="gasto"><b>💲 ' + esc(T('nuevoGasto')) + '</b><span class="mut">' + esc(T('nuevoGastoDesc')) + '</span></button>';
+  }
   function vistaVisitas() {
     var n = pendientes().length;
-    var h = '<h2>' + esc(T('visitas')) + '</h2>';
+    var h = selectorRegistros('visitas');
     if (n) h += '<button class="btn sec" type="button" data-sync="1">⬆ ' + esc(T('sincronizar')) + ' (' + n + ')</button>';
     $('#tela-visitas').innerHTML = h + listaVisitas();
   }
@@ -796,9 +826,10 @@
     if (!t) return;
     var d = t.dataset;
     if (d.tela) {
-      if (d.tela === 'nueva') ir('visita', borrador ? null : { nueva: true });
+      if (d.tela === 'nueva') ir(borrador ? 'visita' : 'nuevo');
       else ir(d.tela);
-    } else if (d.ficha) ir('ficha', d.ficha);
+    } else if (d.nuevaVisita) ir('visita', { nueva: true });
+    else if (d.ficha) ir('ficha', d.ficha);
     else if (d.pot) { mapa.closePopup(); ir('ficha', d.pot); }
     else if (d.nueva) ir('visita', borrador && borrador.potreiro_id === d.nueva ? null : { nueva: true, potrero: d.nueva });
     else if (d.detalle) ir('detalle', d.detalle);
@@ -832,6 +863,16 @@
   });
   window.addEventListener('online', function () { sincronizar(false); });
 
+  // ---------------------------------------------------------------- API para módulos
+  SJ.esc = esc; SJ.$ = $; SJ.aviso = aviso; SJ.uid = uid; SJ.ahoraLocal = ahoraLocal;
+  SJ.kvGet = kvGet; SJ.kvSet = kvSet; SJ.tx = tx; SJ.fetchT = fetchT; SJ.blobB64 = blobB64; SJ.achicar = achicar;
+  SJ.cfg = function () { return cfg; }; SJ.datos = function () { return datos; };
+  SJ.potrero = potrero; SJ.periodoDe = periodoDe; SJ.usoAhora = usoAhora; SJ.clasificar = clasificar;
+  SJ.categoria = categoria; SJ.colorTipo = colorTipo; SJ.nombreTipo = nombreTipo; SJ.etiquetaPer = etiquetaPer;
+  SJ.ir = ir; SJ.pill = pill; SJ.sincronizar = sincronizar; SJ.selectorRegistros = selectorRegistros;
+  SJ.idioma = function () { return cfg.idioma; };
+  SJ.visitas = function () { return todasLasVisitas().map(function (x) { return x.v; }); };
+
   // ---------------------------------------------------------------- arranque
   function arrancar() {
     Promise.all([kvGet('cfg'), kvGet('datos'), kvGet('remotas'), kvGet('borrador')]).then(function (r) {
@@ -843,6 +884,8 @@
       return fetch('datos/campo-sao-jose.json').then(function (x) { return x.ok ? x.json() : null; })
         .then(function (j) { if (j) { datos = j; return kvSet('datos', j); } }).catch(function () {});
     }).then(recargarLocales).then(function () {
+      return Promise.all((SJ.alArrancar || []).map(function (f) { return f(); }));
+    }).then(function () {
       textos();
       if (datos) armarMapa();
       ir(datos && cfg.usuario ? 'mapa' : 'config');
@@ -853,5 +896,5 @@
     }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
   }
-  arrancar();
+  SJ.listo = arrancar;
 })();

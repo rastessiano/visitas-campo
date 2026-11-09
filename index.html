@@ -14,7 +14,10 @@
 <body>
 <header class="barra">
   <div class="titulo"><b>São José</b><span id="sub">Visitas de campo</span></div>
-  <button id="btn-sync" class="pill" type="button">—</button>
+  <div class="acciones">
+    <button id="btn-sync" class="pill" type="button">—</button>
+    <button class="pill icono" type="button" data-tela="config" aria-label="Ajustes">⚙️</button>
+  </div>
 </header>
 
 <main>
@@ -25,18 +28,24 @@
   </section>
   <section id="tela-potreiros" class="tela oculto"></section>
   <section id="tela-ficha" class="tela oculto"></section>
+  <section id="tela-nuevo" class="tela oculto"></section>
   <section id="tela-visita" class="tela oculto"></section>
+  <section id="tela-gasto" class="tela oculto"></section>
   <section id="tela-visitas" class="tela oculto"></section>
+  <section id="tela-gastos" class="tela oculto"></section>
+  <section id="tela-costos" class="tela oculto"></section>
   <section id="tela-detalle" class="tela oculto"></section>
+  <section id="tela-detalleGasto" class="tela oculto"></section>
+  <section id="tela-asistente" class="tela oculto"></section>
   <section id="tela-config" class="tela oculto"></section>
 </main>
 
 <nav class="pestanas">
   <button data-tela="mapa" class="activa" type="button"><span>🗺️</span><b data-t="mapa"></b></button>
   <button data-tela="potreiros" type="button"><span>📋</span><b data-t="potreiros"></b></button>
-  <button data-tela="nueva" type="button" class="nueva"><span>＋</span><b data-t="nueva"></b></button>
-  <button data-tela="visitas" type="button"><span>🕓</span><b data-t="visitas"></b></button>
-  <button data-tela="config" type="button"><span>⚙️</span><b data-t="config"></b></button>
+  <button data-tela="nueva" type="button" class="nueva"><span>＋</span><b>&nbsp;</b></button>
+  <button data-tela="visitas" type="button"><span>🗂️</span><b data-t="registros"></b></button>
+  <button data-tela="asistente" type="button"><span>💬</span><b data-t="asistente"></b></button>
 </nav>
 
 <div id="aviso" class="aviso oculto"></div>
@@ -44,5 +53,8 @@
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="reglas.js"></script>
 <script src="app.js"></script>
+<script src="gastos.js"></script>
+<script src="asistente.js"></script>
+<script src="inicio.js"></script>
 </body>
 </html>

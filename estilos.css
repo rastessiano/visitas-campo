@@ -131,3 +131,33 @@ textarea{min-height:76px;resize:vertical}
 @media (min-width:900px){
   .tela:not(#tela-mapa)>*{max-width:1200px;margin-left:auto;margin-right:auto}
 }
+
+/* Gastos, selector de carga y asistente */
+.acciones{display:flex;gap:6px;align-items:center}
+.pill.icono{padding:8px 10px}
+button.opcion{display:block;width:100%;text-align:left;border:1px solid var(--linea);cursor:pointer}
+button.opcion b{display:block;font-size:17px;color:var(--azul);margin-bottom:4px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--linea);background:#fff;border-radius:999px;padding:8px 12px;font-size:13px;min-height:40px}
+.chips button.sel{background:var(--azul);color:#fff;border-color:var(--azul)}
+.selpot summary{cursor:pointer;color:var(--azul);font-weight:600;padding:8px 0}
+.lista-check{display:grid;gap:2px;max-height:300px;overflow-y:auto;border:1px solid var(--linea);border-radius:10px;padding:6px}
+.lista-check label{display:flex;gap:8px;align-items:center;padding:8px 6px;font-size:14px}
+.lista-check input{width:20px;height:20px}
+.niveles.dos-op{grid-template-columns:1fr 1fr}
+.niveles.tres-op{grid-template-columns:repeat(3,1fr)}
+.nuevo-prod{border-left:3px solid var(--dorado);padding-left:10px;margin-top:6px}
+.equiv{margin-top:6px}
+.monto{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.monto b{white-space:nowrap}
+.tabla-costos{width:100%;border-collapse:collapse;font-size:14px}
+.tabla-costos td{padding:7px 4px;border-bottom:1px solid var(--linea)}
+.tabla-costos td.num{text-align:right;white-space:nowrap}
+.tabla-costos tr[data-ficha]{cursor:pointer}
+.burbuja{border-radius:14px;padding:10px 12px;margin:8px 0;max-width:88%;line-height:1.4;font-size:15px}
+.burbuja.yo{background:var(--azul);color:#fff;margin-left:auto}
+.burbuja.ia{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.burbuja.error{background:#fdecea;color:var(--rojo)}
+.a-entrada{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:10px}
+.a-entrada textarea{min-height:56px}
+.a-entrada .btn{margin:0;width:auto;padding:14px 16px}
