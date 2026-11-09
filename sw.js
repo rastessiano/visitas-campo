@@ -1,5 +1,5 @@
 /* Service worker: guarda la app en el teléfono para que abra sin señal. */
-var VERSION = 'visitas-sj-2026-11-09-v4';
+var VERSION = 'visitas-sj-2026-11-09-v5';
 var APP = ['./', 'index.html', 'estilos.css', 'app.js', 'reglas.js', 'gastos.js', 'asistente.js', 'inicio.js', 'manifest.webmanifest',
   'icono-192.png', 'icono-512.png', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css',
   'vendor/leaflet/images/layers.png', 'vendor/leaflet/images/marker-icon.png', 'vendor/leaflet/images/marker-shadow.png'];
@@ -28,11 +28,17 @@ self.addEventListener('fetch', function (e) {
     return;
   }
   if (url.origin !== location.origin) return;
-  // App: primero lo guardado; en segundo plano se actualiza.
+  // App: con conexión, primero la versión publicada (así se ven los cambios enseguida);
+  // si la red no contesta en 4 segundos o no hay señal, la copia guardada.
   e.respondWith(caches.open(VERSION).then(function (c) {
-    return c.match(e.request, { ignoreSearch: true }).then(function (r) {
-      var red = fetch(e.request).then(function (resp) { if (resp.ok) c.put(e.request, resp.clone()); return resp; }).catch(function () { return r; });
-      return r || red;
+    return c.match(e.request, { ignoreSearch: true }).then(function (guardada) {
+      var red = fetch(e.request, { cache: 'no-cache' }).then(function (resp) {
+        if (resp.ok) c.put(e.request, resp.clone());
+        return resp;
+      });
+      if (!guardada) return red;
+      var espera = new Promise(function (ok) { setTimeout(function () { ok(guardada); }, 4000); });
+      return Promise.race([red.catch(function () { return guardada; }), espera]);
     });
   }));
 });

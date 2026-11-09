@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2026-11-09 v4';
+  var VERSION = '2026-11-09 v5';
   // Punto de enganche para los módulos (gastos.js, asistente.js).
   var SJ = window.SJ = { vistas: {}, alSincronizar: [], pendientesExtra: [], textos: { es: {}, pt: {} } };
   SJ.T = function (k) {
@@ -892,7 +892,12 @@
       if (cfg.url) sincronizar(false);
     });
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+      // Cuando se instala una versión nueva de la app, se recarga una vez sola.
+      var habia = !!navigator.serviceWorker.controller, recargada = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (habia && !recargada) { recargada = true; location.reload(); }
+      });
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (r) { r.update(); }).catch(function () {});
     }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
   }
